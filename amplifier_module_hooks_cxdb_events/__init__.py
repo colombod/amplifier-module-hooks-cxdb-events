@@ -108,18 +108,14 @@ async def mount(coordinator: Any, config: dict[str, Any]) -> Any:
 
     # Build client_tag: "amplifier - <project> - <root_session_id_short>"
     # The client_tag identifies this connection in CXDB's UI and CQL queries.
-    project_name = coordinator.config.get("project_name", "")
-    if not project_name:
-        # Try to extract from project path if available
-        project_path = coordinator.config.get("project_path", "")
-        if project_path:
-            import os
+    #
+    # Note: the CLI does NOT put project_name or bundle_name into
+    # coordinator.config (only root_session_id is set there). We derive
+    # project name from cwd, matching how the CLI scopes sessions.
+    import os
 
-            project_name = os.path.basename(project_path.rstrip("/"))
-    tag_parts = ["amplifier"]
-    if project_name:
-        tag_parts.append(project_name)
-    tag_parts.append(root_session_id[:12])
+    project_name = os.path.basename(os.getcwd())
+    tag_parts = ["amplifier", project_name, root_session_id[:12]]
     client_tag = " - ".join(tag_parts)
 
     # Create the TCP client and hook
@@ -127,10 +123,8 @@ async def mount(coordinator: Any, config: dict[str, Any]) -> Any:
         host=cxdb_host, port=cxdb_port, timeout=timeout, client_tag=client_tag
     )
 
-    # Stash project/bundle info into config for context_metadata in hook.initialize()
-    bundle_name = coordinator.config.get("bundle_name", "")
+    # Stash project info into config for context_metadata in hook.initialize()
     config["_project_name"] = project_name
-    config["_bundle_name"] = bundle_name
 
     hook = CXDBEventHook(
         client=client,

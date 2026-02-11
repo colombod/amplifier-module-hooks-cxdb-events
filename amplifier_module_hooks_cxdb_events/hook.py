@@ -123,7 +123,6 @@ class CXDBEventHook:
 
             # Create contexts and write context_metadata as first turn
             project_name = self._config.get("_project_name", "")
-            bundle_name = self._config.get("_bundle_name", "")
             spawn_reason = "root" if self._is_root else "delegate"
 
             if self._is_root:
@@ -145,7 +144,7 @@ class CXDBEventHook:
                     client_tag=self._client.client_tag,
                     project_name=project_name,
                     agent_name=self._agent_name or "",
-                    bundle_name=bundle_name,
+                    bundle_name="",
                     spawn_reason=spawn_reason,
                 )
                 await self._write_turn(
