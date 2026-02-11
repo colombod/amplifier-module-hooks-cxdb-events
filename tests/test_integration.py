@@ -37,15 +37,15 @@ async def cxdb_client():
 
 class TestCLIChange:
     def test_session_runner_sets_root_session_id(self):
-        """Verify session_runner.py contains the cxdb_root_session_id line."""
+        """Verify session_runner.py contains the root_session_id line."""
         session_runner = Path(
             "/home/dicolomb/cxdb-investigation/app-cli-fork/"
             "amplifier_app_cli/session_runner.py"
         )
         assert session_runner.exists(), "session_runner.py not found"
         source = session_runner.read_text()
-        assert "cxdb_root_session_id" in source, (
-            "session_runner.py should set cxdb_root_session_id in config"
+        assert "root_session_id" in source, (
+            "session_runner.py should set root_session_id in config"
         )
 
 

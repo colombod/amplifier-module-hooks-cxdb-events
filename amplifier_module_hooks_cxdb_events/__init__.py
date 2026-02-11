@@ -107,7 +107,7 @@ async def mount(coordinator: Any, config: dict[str, Any]) -> Any:
     # Get session info from coordinator
     session_id = coordinator.session_id
     parent_id = coordinator.parent_id
-    root_session_id = coordinator.config.get("cxdb_root_session_id", session_id)
+    root_session_id = coordinator.config.get("root_session_id", session_id)
 
     hook = CXDBEventHook(
         client=client,

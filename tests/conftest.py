@@ -36,7 +36,7 @@ def mock_coordinator():
     coordinator = MagicMock()
     coordinator.session_id = "test-session-123"
     coordinator.parent_id = None
-    coordinator.config = {"cxdb_root_session_id": "test-session-123"}
+    coordinator.config = {"root_session_id": "test-session-123"}
     coordinator.hooks = MagicMock()
     coordinator.hooks.register = MagicMock()
     coordinator.collect_contributions = AsyncMock(return_value=[])
