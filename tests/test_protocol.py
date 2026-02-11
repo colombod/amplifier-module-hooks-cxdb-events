@@ -14,6 +14,7 @@ from amplifier_module_hooks_cxdb_events.protocol import (
     MSG_CTX_CREATE,
     MSG_CTX_FORK,
     MSG_ERROR,
+    MSG_GET_HEAD,
     MSG_HELLO,
     decode_frame,
     encode_append_turn_payload,
@@ -83,6 +84,7 @@ class TestDecodeFrame:
             MSG_HELLO,
             MSG_CTX_CREATE,
             MSG_CTX_FORK,
+            MSG_GET_HEAD,
             MSG_APPEND_TURN,
             MSG_ERROR,
         ]:
@@ -165,16 +167,75 @@ class TestCXDBTcpClientConnect:
         await client.close()  # Should not raise
 
 
+class TestHelloNewFormat:
+    def test_client_tag_stored(self):
+        """Client tag is stored on the client instance."""
+        client = CXDBTcpClient("127.0.0.1", 9999, client_tag="test-client")
+        assert client.client_tag == "test-client"
+
+    def test_default_client_tag(self):
+        """Default client tag is amplifier-hooks-cxdb."""
+        client = CXDBTcpClient("127.0.0.1", 9999)
+        assert client.client_tag == "amplifier-hooks-cxdb"
+
+    def test_session_id_none_before_connect(self):
+        """Session ID is None before connect."""
+        client = CXDBTcpClient("127.0.0.1", 9999)
+        assert client.session_id is None
+
+    @pytest.mark.asyncio
+    async def test_session_id_stored(self, mock_tcp_server):
+        """Session ID from HELLO response is stored."""
+        client = CXDBTcpClient("127.0.0.1", mock_tcp_server.port)
+        await client.connect()
+        assert client.session_id is not None
+        assert isinstance(client.session_id, int)
+        assert client.session_id == 42  # MockCXDBServer returns 42
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_hello_with_custom_tag(self, mock_tcp_server):
+        """HELLO handshake works with custom client tag."""
+        client = CXDBTcpClient(
+            "127.0.0.1", mock_tcp_server.port, client_tag="my-custom-tag"
+        )
+        await client.connect()
+        assert client.connected
+        assert client.session_id is not None
+        await client.close()
+
+
+class TestGetHead:
+    @pytest.mark.asyncio
+    async def test_get_head(self, mock_tcp_server):
+        """GetHead returns head_turn_id and head_depth."""
+        client = CXDBTcpClient("127.0.0.1", mock_tcp_server.port)
+        await client.connect()
+        ctx_id, _, _ = await client.create_context()
+        head_turn_id, head_depth = await client.get_head(ctx_id)
+        assert isinstance(head_turn_id, int)
+        assert isinstance(head_depth, int)
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_get_head_not_connected(self):
+        """GetHead without connect raises ConnectionError."""
+        client = CXDBTcpClient("127.0.0.1", 9999)
+        with pytest.raises(ConnectionError, match="Not connected"):
+            await client.get_head(1)
+
+
 class TestCXDBTcpClientContextOps:
     @pytest.mark.asyncio
     async def test_create_context(self, mock_tcp_server):
         """MSG_CTX_CREATE returns valid context_id and head_turn_id."""
         client = CXDBTcpClient("127.0.0.1", mock_tcp_server.port)
         await client.connect()
-        context_id, head_turn_id = await client.create_context()
+        context_id, head_turn_id, head_depth = await client.create_context()
         assert isinstance(context_id, int)
         assert context_id > 0
         assert isinstance(head_turn_id, int)
+        assert isinstance(head_depth, int)
         await client.close()
 
     @pytest.mark.asyncio
@@ -182,8 +243,8 @@ class TestCXDBTcpClientContextOps:
         """Multiple context creates return unique IDs."""
         client = CXDBTcpClient("127.0.0.1", mock_tcp_server.port)
         await client.connect()
-        ctx1, _ = await client.create_context()
-        ctx2, _ = await client.create_context()
+        ctx1, _, _ = await client.create_context()
+        ctx2, _, _ = await client.create_context()
         assert ctx1 != ctx2
         await client.close()
 
@@ -192,7 +253,7 @@ class TestCXDBTcpClientContextOps:
         """MSG_CTX_FORK returns new context with correct types."""
         client = CXDBTcpClient("127.0.0.1", mock_tcp_server.port)
         await client.connect()
-        ctx_id, head = await client.create_context()
+        ctx_id, head, _ = await client.create_context()
         new_ctx, new_head, depth = await client.fork_context(head)
         assert isinstance(new_ctx, int)
         assert new_ctx != ctx_id
@@ -354,7 +415,7 @@ class TestClientAppendTurn:
         """append_turn sends MSG_APPEND_TURN and returns turn_id, depth."""
         client = CXDBTcpClient("127.0.0.1", mock_tcp_server.port)
         await client.connect()
-        ctx_id, _ = await client.create_context()
+        ctx_id, _, _ = await client.create_context()
         turn_id, depth = await client.append_turn(
             context_id=ctx_id,
             payload={1: "session:start", 2: "test-session"},
@@ -370,7 +431,7 @@ class TestClientAppendTurn:
         """Multiple appends return incrementing turn IDs."""
         client = CXDBTcpClient("127.0.0.1", mock_tcp_server.port)
         await client.connect()
-        ctx_id, _ = await client.create_context()
+        ctx_id, _, _ = await client.create_context()
         tid1, _ = await client.append_turn(
             context_id=ctx_id,
             payload={1: "event1"},

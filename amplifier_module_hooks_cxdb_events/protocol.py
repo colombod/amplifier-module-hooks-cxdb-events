@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 MSG_HELLO = 1
 MSG_CTX_CREATE = 2
 MSG_CTX_FORK = 3
+MSG_GET_HEAD = 4
 MSG_APPEND_TURN = 5
 MSG_ERROR = 255
 
@@ -160,18 +161,31 @@ class CXDBProtocolError(Exception):
 class CXDBTcpClient:
     """Async TCP client for CXDB binary protocol."""
 
-    def __init__(self, host: str, port: int, timeout: float = 5.0):
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        timeout: float = 5.0,
+        client_tag: str = "amplifier-hooks-cxdb",
+    ):
         self.host = host
         self.port = port
         self.timeout = timeout
+        self.client_tag = client_tag
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
         self._request_id: int = 0
         self._connected: bool = False
+        self._session_id: int | None = None
 
     @property
     def connected(self) -> bool:
         return self._connected
+
+    @property
+    def session_id(self) -> int | None:
+        """Server-assigned session ID from HELLO handshake."""
+        return self._session_id
 
     def _next_request_id(self) -> int:
         self._request_id += 1
@@ -194,40 +208,80 @@ class CXDBTcpClient:
                 f"Failed to connect to CXDB at {self.host}:{self.port}: {e}"
             ) from e
 
-        # Send MSG_HELLO with empty payload (legacy format)
-        response = await self._send_and_recv(MSG_HELLO, b"")
-        # Response: session_id(u64 LE) + protocol_version(u16 LE) = 10 bytes
-        if len(response) >= 10:
-            server_session_id, protocol_version = struct.unpack("<QH", response[:10])
+        # Build HELLO payload (new format, matching Go client)
+        tag_bytes = self.client_tag.encode("utf-8")
+        hello_payload = struct.pack(
+            "<HH", 1, len(tag_bytes)
+        )  # protocol_version=1, tag_len
+        hello_payload += tag_bytes
+        hello_payload += struct.pack("<I", 0)  # client_meta_json_len=0
+
+        response = await self._send_and_recv(MSG_HELLO, hello_payload)
+        # Response: session_id(u64 LE) [+ optional protocol_version(u16 LE)]
+        if len(response) >= 8:
+            self._session_id = struct.unpack("<Q", response[:8])[0]
             logger.info(
-                "Connected to CXDB server (session=%d, protocol=v%d)",
-                server_session_id,
-                protocol_version,
+                "Connected to CXDB (session=%d, tag=%s)",
+                self._session_id,
+                self.client_tag,
             )
 
         self._connected = True
 
-    async def create_context(self) -> tuple[int, int]:
+    async def create_context(self, base_turn_id: int = 0) -> tuple[int, int, int]:
         """Create a new CXDB context.
 
+        Args:
+            base_turn_id: Turn ID to base the context on. 0 = empty context.
+
         Returns:
-            Tuple of (context_id, head_turn_id) as u64 values.
+            Tuple of (context_id, head_turn_id, head_depth).
 
         Raises:
             ConnectionError: If not connected.
             CXDBProtocolError: If server returns error.
         """
         self._ensure_connected()
-        # Send base_turn_id=0 as u64 LE (8 bytes) per CXDB parse_ctx_create()
-        response = await self._send_and_recv(MSG_CTX_CREATE, struct.pack("<Q", 0))
+        response = await self._send_and_recv(
+            MSG_CTX_CREATE, struct.pack("<Q", base_turn_id)
+        )
         # Response: context_id(u64) + head_turn_id(u64) + head_depth(u32) = 20 bytes
         if len(response) < 20:
             raise CXDBProtocolError(
                 f"CTX_CREATE response too short: {len(response)} bytes"
             )
-        context_id, head_turn_id, _head_depth = struct.unpack("<QQI", response[:20])
-        logger.debug("Created context %d with head turn %d", context_id, head_turn_id)
-        return context_id, head_turn_id
+        context_id, head_turn_id, head_depth = struct.unpack("<QQI", response[:20])
+        logger.debug(
+            "Created context %d (head=%d, depth=%d)",
+            context_id,
+            head_turn_id,
+            head_depth,
+        )
+        return context_id, head_turn_id, head_depth
+
+    async def get_head(self, context_id: int) -> tuple[int, int]:
+        """Get the current head of a context.
+
+        Args:
+            context_id: Context to query.
+
+        Returns:
+            Tuple of (head_turn_id, head_depth).
+
+        Raises:
+            ConnectionError: If not connected.
+            CXDBProtocolError: If server returns error.
+        """
+        self._ensure_connected()
+        response = await self._send_and_recv(
+            MSG_GET_HEAD, struct.pack("<Q", context_id)
+        )
+        if len(response) < 12:
+            raise CXDBProtocolError(
+                f"GET_HEAD response too short: {len(response)} bytes"
+            )
+        head_turn_id, head_depth = struct.unpack("<QI", response[:12])
+        return head_turn_id, head_depth
 
     async def fork_context(self, base_turn_id: int) -> tuple[int, int, int]:
         """Fork a context from a specific turn.

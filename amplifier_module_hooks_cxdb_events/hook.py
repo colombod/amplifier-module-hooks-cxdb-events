@@ -122,8 +122,8 @@ class CXDBEventHook:
             # Create or resolve contexts
             if self._is_root:
                 # Root session creates both contexts
-                self._turns_context_id, _ = await self._client.create_context()
-                self._everything_context_id, _ = await self._client.create_context()
+                self._turns_context_id, _, _ = await self._client.create_context()
+                self._everything_context_id, _, _ = await self._client.create_context()
                 logger.info(
                     f"Created CXDB contexts: turns={self._turns_context_id}, "
                     f"everything={self._everything_context_id}"
@@ -134,8 +134,8 @@ class CXDBEventHook:
                 # envelope, enabling cross-context lineage reconstruction.
                 # A future optimization could share root's contexts directly
                 # via a CXDB metadata lookup or capability propagation.
-                self._turns_context_id, _ = await self._client.create_context()
-                self._everything_context_id, _ = await self._client.create_context()
+                self._turns_context_id, _, _ = await self._client.create_context()
+                self._everything_context_id, _, _ = await self._client.create_context()
                 logger.info(
                     f"Child session created CXDB contexts: turns={self._turns_context_id}, "
                     f"everything={self._everything_context_id}"

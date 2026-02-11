@@ -15,6 +15,7 @@ from amplifier_module_hooks_cxdb_events.protocol import (
     MSG_APPEND_TURN,
     MSG_CTX_CREATE,
     MSG_CTX_FORK,
+    MSG_GET_HEAD,
     MSG_HELLO,
     encode_frame,
 )
@@ -93,12 +94,20 @@ class MockCXDBServer:
 
     def _handle_message(self, msg_type: int, payload: bytes) -> bytes:
         if msg_type == MSG_HELLO:
+            # Accept new format: protocol_version(u16) + tag_len(u16) + tag + meta_len(u32)
             # Return session_id(u64 LE) + protocol_version(u16 LE)
-            return struct.pack("<QH", 1, 1)
+            return struct.pack("<QH", 42, 1)
+
+        if msg_type == MSG_GET_HEAD:
+            # Read context_id(u64), return head_turn_id(u64) + head_depth(u32)
+            context_id = struct.unpack("<Q", payload[:8])[0] if len(payload) >= 8 else 0
+            return struct.pack("<QI", self._next_turn_id - 1, 0)
 
         if msg_type == MSG_CTX_CREATE:
             # Read base_turn_id (u64 LE) from payload
-            base_turn_id = struct.unpack("<Q", payload[:8])[0] if len(payload) >= 8 else 0
+            base_turn_id = (
+                struct.unpack("<Q", payload[:8])[0] if len(payload) >= 8 else 0
+            )
             ctx_id = self._next_context_id
             self._next_context_id += 1
             turn_id = self._next_turn_id
