@@ -25,10 +25,9 @@ from amplifier_module_hooks_cxdb_events.protocol import (
 
 class TestEncodeFrame:
     def test_hello_frame(self):
-        """MSG_HELLO with version u32 payload."""
-        version_payload = struct.pack(">I", 1)
-        frame = encode_frame(MSG_HELLO, request_id=1, payload=version_payload)
-        assert len(frame) == FRAME_HEADER_SIZE + 4
+        """MSG_HELLO with empty payload (legacy format)."""
+        frame = encode_frame(MSG_HELLO, request_id=1, payload=b"")
+        assert len(frame) == FRAME_HEADER_SIZE
 
     def test_empty_payload(self):
         """Frame with empty payload (e.g., CTX_CREATE)."""
@@ -44,26 +43,26 @@ class TestEncodeFrame:
     def test_flags_default_zero(self):
         """Flags default to 0."""
         frame = encode_frame(MSG_HELLO, request_id=1, payload=b"")
-        _, flags, _, _ = struct.unpack(">BBII", frame[:FRAME_HEADER_SIZE])
+        _, _, flags, _ = struct.unpack("<IHHQ", frame[:FRAME_HEADER_SIZE])
         assert flags == 0
 
     def test_flags_custom(self):
         """Custom flags are encoded."""
         frame = encode_frame(MSG_HELLO, request_id=1, payload=b"", flags=42)
-        _, flags, _, _ = struct.unpack(">BBII", frame[:FRAME_HEADER_SIZE])
+        _, _, flags, _ = struct.unpack("<IHHQ", frame[:FRAME_HEADER_SIZE])
         assert flags == 42
 
     def test_request_id_encoded(self):
         """Request ID is correctly encoded in the frame."""
         frame = encode_frame(MSG_CTX_CREATE, request_id=12345, payload=b"")
-        _, _, req_id, _ = struct.unpack(">BBII", frame[:FRAME_HEADER_SIZE])
+        _, _, _, req_id = struct.unpack("<IHHQ", frame[:FRAME_HEADER_SIZE])
         assert req_id == 12345
 
     def test_payload_len_encoded(self):
         """Payload length is correctly encoded in the header."""
         payload = b"hello"
         frame = encode_frame(MSG_HELLO, request_id=1, payload=payload)
-        _, _, _, payload_len = struct.unpack(">BBII", frame[:FRAME_HEADER_SIZE])
+        payload_len, _, _, _ = struct.unpack("<IHHQ", frame[:FRAME_HEADER_SIZE])
         assert payload_len == 5
 
 
@@ -114,7 +113,7 @@ class TestDecodeFrame:
     def test_incomplete_payload_raises(self):
         """Truncated payload raises ValueError."""
         # Create a valid header claiming 100 bytes payload, but only provide 5
-        header = struct.pack(">BBII", MSG_HELLO, 0, 1, 100)
+        header = struct.pack("<IHHQ", 100, MSG_HELLO, 0, 1)
         with pytest.raises(ValueError, match="Incomplete payload"):
             decode_frame(header + b"short")
 
@@ -217,7 +216,7 @@ class TestCXDBTcpClientContextOps:
 
 class TestAppendTurnPayload:
     def test_payload_starts_with_context_id(self):
-        """First 8 bytes are context_id as big-endian u64."""
+        """First 8 bytes are context_id as little-endian u64."""
         payload_data = {1: "test_event", 2: "session-123"}
         msgpack_bytes, content_hash = serialize_payload(payload_data)
         encoded = encode_append_turn_payload(
@@ -226,11 +225,11 @@ class TestAppendTurnPayload:
             content_hash=content_hash,
             declared_type_id="amplifier.GenericEvent",
         )
-        context_id = struct.unpack(">Q", encoded[0:8])[0]
+        context_id = struct.unpack("<Q", encoded[0:8])[0]
         assert context_id == 42
 
     def test_parent_turn_id_follows_context_id(self):
-        """Bytes 8-16 are parent_turn_id as big-endian u64."""
+        """Bytes 8-16 are parent_turn_id as little-endian u64."""
         payload_data = {1: "test"}
         msgpack_bytes, content_hash = serialize_payload(payload_data)
         encoded = encode_append_turn_payload(
@@ -240,7 +239,7 @@ class TestAppendTurnPayload:
             declared_type_id="amplifier.GenericEvent",
             parent_turn_id=99,
         )
-        parent_turn_id = struct.unpack(">Q", encoded[8:16])[0]
+        parent_turn_id = struct.unpack("<Q", encoded[8:16])[0]
         assert parent_turn_id == 99
 
     def test_default_parent_turn_id_zero(self):
@@ -253,7 +252,7 @@ class TestAppendTurnPayload:
             content_hash=content_hash,
             declared_type_id="amplifier.GenericEvent",
         )
-        parent_turn_id = struct.unpack(">Q", encoded[8:16])[0]
+        parent_turn_id = struct.unpack("<Q", encoded[8:16])[0]
         assert parent_turn_id == 0
 
     def test_type_id_encoded_as_length_prefixed_utf8(self):
@@ -268,7 +267,7 @@ class TestAppendTurnPayload:
             declared_type_id=type_id,
         )
         # After context_id(8) + parent_turn_id(8) = offset 16
-        type_id_len = struct.unpack(">I", encoded[16:20])[0]
+        type_id_len = struct.unpack("<I", encoded[16:20])[0]
         assert type_id_len == len(type_id.encode("utf-8"))
         extracted_type_id = encoded[20 : 20 + type_id_len].decode("utf-8")
         assert extracted_type_id == type_id

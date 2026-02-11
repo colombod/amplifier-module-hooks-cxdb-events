@@ -108,7 +108,7 @@ class CXDBEventHook:
 
             # Publish registry bundle (HTTP, idempotent)
             if not self._registry_published:
-                http_port = self._config.get("cxdb_http_port", 9010)
+                http_port = self._config.get("cxdb_http_port", 80)
                 published = await publish_registry_bundle(self._client.host, http_port)
                 if published:
                     self._registry_published = True

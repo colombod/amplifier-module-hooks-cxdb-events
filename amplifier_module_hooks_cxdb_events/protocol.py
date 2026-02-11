@@ -22,9 +22,10 @@ MSG_ERROR = 255
 ENCODING_MSGPACK = 1
 COMPRESSION_NONE = 0
 
-# Frame header: msg_type(1B) + flags(1B) + request_id(4B) + payload_len(4B) = 10 bytes
-FRAME_HEADER_SIZE = 10
-FRAME_HEADER_FORMAT = ">BBII"  # big-endian: uint8, uint8, uint32, uint32
+# Frame header: len(4B) + msg_type(2B) + flags(2B) + req_id(8B) = 16 bytes
+# ALL LITTLE-ENDIAN per CXDB server/src/protocol/mod.rs
+FRAME_HEADER_SIZE = 16
+FRAME_HEADER_FORMAT = "<IHHQ"  # little-endian: u32 len, u16 msg_type, u16 flags, u64 req_id
 
 
 def encode_frame(
@@ -41,7 +42,7 @@ def encode_frame(
     Returns:
         Complete frame bytes including header and payload.
     """
-    header = struct.pack(FRAME_HEADER_FORMAT, msg_type, flags, request_id, len(payload))
+    header = struct.pack(FRAME_HEADER_FORMAT, len(payload), msg_type, flags, request_id)
     return header + payload
 
 
@@ -62,7 +63,7 @@ def decode_frame(data: bytes) -> tuple[int, int, int, bytes]:
             f"Frame too short: {len(data)} bytes, need at least {FRAME_HEADER_SIZE}"
         )
 
-    msg_type, flags, request_id, payload_len = struct.unpack(
+    payload_len, msg_type, flags, request_id = struct.unpack(
         FRAME_HEADER_FORMAT, data[:FRAME_HEADER_SIZE]
     )
     payload = data[FRAME_HEADER_SIZE : FRAME_HEADER_SIZE + payload_len]
@@ -100,18 +101,18 @@ def encode_append_turn_payload(
     idempotency_key = generate_idempotency_key(context_id, content_hash)
 
     parts = [
-        struct.pack(">Q", context_id),
-        struct.pack(">Q", parent_turn_id),
-        struct.pack(">I", len(type_id_bytes)),
+        struct.pack("<Q", context_id),
+        struct.pack("<Q", parent_turn_id),
+        struct.pack("<I", len(type_id_bytes)),
         type_id_bytes,
-        struct.pack(">I", declared_type_version),
-        struct.pack(">I", ENCODING_MSGPACK),
-        struct.pack(">I", COMPRESSION_NONE),
-        struct.pack(">I", len(msgpack_bytes)),
+        struct.pack("<I", declared_type_version),
+        struct.pack("<I", ENCODING_MSGPACK),
+        struct.pack("<I", COMPRESSION_NONE),
+        struct.pack("<I", len(msgpack_bytes)),
         content_hash,
-        struct.pack(">I", len(msgpack_bytes)),
+        struct.pack("<I", len(msgpack_bytes)),
         msgpack_bytes,
-        struct.pack(">I", len(idempotency_key)),
+        struct.pack("<I", len(idempotency_key)),
         idempotency_key,
     ]
     return b"".join(parts)
@@ -127,7 +128,7 @@ def generate_idempotency_key(context_id: int, content_hash: bytes) -> bytes:
     Returns:
         SHA-256 digest bytes (32 bytes).
     """
-    key_input = struct.pack(">Q", context_id) + b":" + content_hash
+    key_input = struct.pack("<Q", context_id) + b":" + content_hash
     return hashlib.sha256(key_input).digest()
 
 
@@ -191,13 +192,16 @@ class CXDBTcpClient:
                 f"Failed to connect to CXDB at {self.host}:{self.port}: {e}"
             ) from e
 
-        # Send MSG_HELLO with protocol version 1
-        version_payload = struct.pack(">I", 1)
-        response = await self._send_and_recv(MSG_HELLO, version_payload)
-        # Response is server version as u32
-        if len(response) >= 4:
-            server_version = struct.unpack(">I", response[:4])[0]
-            logger.info("Connected to CXDB server version %d", server_version)
+        # Send MSG_HELLO with empty payload (legacy format)
+        response = await self._send_and_recv(MSG_HELLO, b"")
+        # Response: session_id(u64 LE) + protocol_version(u16 LE) = 10 bytes
+        if len(response) >= 10:
+            server_session_id, protocol_version = struct.unpack("<QH", response[:10])
+            logger.info(
+                "Connected to CXDB server (session=%d, protocol=v%d)",
+                server_session_id,
+                protocol_version,
+            )
 
         self._connected = True
 
@@ -218,7 +222,7 @@ class CXDBTcpClient:
             raise CXDBProtocolError(
                 f"CTX_CREATE response too short: {len(response)} bytes"
             )
-        context_id, head_turn_id = struct.unpack(">QQ", response[:16])
+        context_id, head_turn_id = struct.unpack("<QQ", response[:16])
         logger.debug("Created context %d with head turn %d", context_id, head_turn_id)
         return context_id, head_turn_id
 
@@ -236,14 +240,14 @@ class CXDBTcpClient:
             CXDBProtocolError: If server returns error.
         """
         self._ensure_connected()
-        payload = struct.pack(">Q", base_turn_id)
+        payload = struct.pack("<Q", base_turn_id)
         response = await self._send_and_recv(MSG_CTX_FORK, payload)
         # Response: new_context_id(u64) + head_turn_id(u64) + head_depth(u32) = 20 bytes
         if len(response) < 20:
             raise CXDBProtocolError(
                 f"CTX_FORK response too short: {len(response)} bytes"
             )
-        new_context_id, head_turn_id, head_depth = struct.unpack(">QQI", response[:20])
+        new_context_id, head_turn_id, head_depth = struct.unpack("<QQI", response[:20])
         logger.debug("Forked context %d from turn %d", new_context_id, base_turn_id)
         return new_context_id, head_turn_id, head_depth
 
@@ -295,7 +299,7 @@ class CXDBTcpClient:
         # Parse APPEND_TURN_ACK: context_id(u64) + new_turn_id(u64) + new_depth(u32) + hash(32)
         if len(response) < 20:
             raise CXDBProtocolError(f"APPEND_TURN_ACK too short: {len(response)} bytes")
-        _, new_turn_id, new_depth = struct.unpack(">QQI", response[:20])
+        _, new_turn_id, new_depth = struct.unpack("<QQI", response[:20])
 
         logger.debug(
             f"Appended turn {new_turn_id} (depth {new_depth}) to context {context_id}"
@@ -343,7 +347,7 @@ class CXDBTcpClient:
                 self._reader.readexactly(FRAME_HEADER_SIZE),
                 timeout=self.timeout,
             )
-            resp_type, _resp_flags, _resp_req_id, resp_payload_len = struct.unpack(
+            resp_payload_len, resp_type, _resp_flags, _resp_req_id = struct.unpack(
                 FRAME_HEADER_FORMAT, header_data
             )
 

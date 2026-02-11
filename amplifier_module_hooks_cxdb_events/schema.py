@@ -29,7 +29,7 @@ def load_bundle_json() -> dict:
     return json.loads(_BUNDLE_PATH.read_text(encoding="utf-8"))
 
 
-async def publish_registry_bundle(http_host: str, http_port: int = 9010) -> bool:
+async def publish_registry_bundle(http_host: str, http_port: int = 80) -> bool:
     """Publish the registry bundle to CXDB via HTTP PUT.
 
     Args:

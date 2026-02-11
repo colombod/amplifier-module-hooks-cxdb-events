@@ -22,7 +22,7 @@ pytestmark = pytest.mark.integration
 
 CXDB_HOST = "localhost"
 CXDB_BINARY_PORT = 9009
-CXDB_HTTP_PORT = 9010
+CXDB_HTTP_PORT = 80
 
 SESSION_ID = "integration-test-root-session"
 CHILD_SESSION_ID = "0000000000000000-aaaa111122223333_foundation:explorer"

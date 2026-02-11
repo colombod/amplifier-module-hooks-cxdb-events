@@ -69,7 +69,7 @@ class MockCXDBServer:
             while True:
                 # Read frame header
                 header_data = await reader.readexactly(FRAME_HEADER_SIZE)
-                msg_type, _flags, request_id, payload_len = struct.unpack(
+                payload_len, msg_type, _flags, request_id = struct.unpack(
                     FRAME_HEADER_FORMAT, header_data
                 )
 
@@ -93,8 +93,8 @@ class MockCXDBServer:
 
     def _handle_message(self, msg_type: int, payload: bytes) -> bytes:
         if msg_type == MSG_HELLO:
-            # Return server version
-            return struct.pack(">I", 1)
+            # Return session_id(u64 LE) + protocol_version(u16 LE)
+            return struct.pack("<QH", 1, 1)
 
         if msg_type == MSG_CTX_CREATE:
             # Return context_id(u64) + head_turn_id(u64)
@@ -102,21 +102,21 @@ class MockCXDBServer:
             self._next_context_id += 1
             turn_id = self._next_turn_id
             self._next_turn_id += 1
-            return struct.pack(">QQ", ctx_id, turn_id)
+            return struct.pack("<QQ", ctx_id, turn_id)
 
         if msg_type == MSG_CTX_FORK:
             # Read base_turn_id, return new_context_id + head_turn_id + head_depth
             base_turn_id = (
-                struct.unpack(">Q", payload[:8])[0] if len(payload) >= 8 else 0
+                struct.unpack("<Q", payload[:8])[0] if len(payload) >= 8 else 0
             )
             ctx_id = self._next_context_id
             self._next_context_id += 1
-            return struct.pack(">QQI", ctx_id, base_turn_id, 1)
+            return struct.pack("<QQI", ctx_id, base_turn_id, 1)
 
         if msg_type == MSG_APPEND_TURN:
             # Parse enough to extract context_id, return ACK
             if len(payload) >= 8:
-                context_id = struct.unpack(">Q", payload[:8])[0]
+                context_id = struct.unpack("<Q", payload[:8])[0]
             else:
                 context_id = 0
             turn_id = self._next_turn_id
@@ -124,7 +124,7 @@ class MockCXDBServer:
             depth = 1
             # ACK: context_id(u64) + new_turn_id(u64) + new_depth(u32) + content_hash(32)
             dummy_hash = b"\x00" * 32
-            return struct.pack(">QQI", context_id, turn_id, depth) + dummy_hash
+            return struct.pack("<QQI", context_id, turn_id, depth) + dummy_hash
 
         # Unknown message type - return error
         return f"Unknown message type: {msg_type}".encode()
