@@ -82,6 +82,7 @@ class TestBundleTypes:
             "timestamp_ms",
             "agent_name",
             "payload_bytes",
+            "root_session_id",
         }
         for t in bundle["types"]:
             if t["type_id"].startswith("amplifier."):
@@ -99,6 +100,7 @@ class TestBundleTypes:
             "timestamp_ms": 4,
             "agent_name": 5,
             "payload_bytes": 6,
+            "root_session_id": 8,
         }
         for t in bundle["types"]:
             if t["type_id"].startswith("amplifier."):
@@ -135,6 +137,7 @@ class TestBundleTypes:
             "timestamp_ms",
             "agent_name",
             "payload_bytes",
+            "root_session_id",
         }
         for t in bundle["types"]:
             if t["type_id"].startswith("amplifier."):

@@ -39,7 +39,7 @@ class TestCLIChange:
     def test_session_runner_sets_root_session_id(self):
         """Verify session_runner.py contains the root_session_id line."""
         session_runner = Path(
-            "/home/dicolomb/cxdb-investigation/app-cli-fork/"
+            "/home/dicolomb/cxdb-investigation/amplifier-app-cli/"
             "amplifier_app_cli/session_runner.py"
         )
         assert session_runner.exists(), "session_runner.py not found"

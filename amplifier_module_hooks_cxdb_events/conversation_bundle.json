@@ -26,6 +26,7 @@
         {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
         {"tag": 5, "name": "agent_name", "type": "string", "required": false},
         {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
+        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
         {"tag": 10, "name": "parent_id", "type": "string", "required": false},
         {"tag": 11, "name": "mount_plan", "type": "map", "required": false}
       ]
@@ -41,6 +42,7 @@
         {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
         {"tag": 5, "name": "agent_name", "type": "string", "required": false},
         {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
+        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
         {"tag": 10, "name": "prompt", "type": "string", "required": false},
         {"tag": 11, "name": "response_preview", "type": "string", "required": false},
         {"tag": 12, "name": "response_length", "type": "uint32", "required": false}
@@ -57,6 +59,7 @@
         {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
         {"tag": 5, "name": "agent_name", "type": "string", "required": false},
         {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
+        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
         {"tag": 10, "name": "data", "type": "map", "required": false}
       ]
     },
@@ -71,6 +74,7 @@
         {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
         {"tag": 5, "name": "agent_name", "type": "string", "required": false},
         {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
+        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
         {"tag": 10, "name": "provider", "type": "string", "required": false},
         {"tag": 11, "name": "model", "type": "string", "required": false},
         {"tag": 12, "name": "iteration", "type": "uint32", "required": false},
@@ -93,6 +97,7 @@
         {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
         {"tag": 5, "name": "agent_name", "type": "string", "required": false},
         {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
+        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
         {"tag": 10, "name": "block_type", "type": "string", "required": false},
         {"tag": 11, "name": "block_index", "type": "uint32", "required": false},
         {"tag": 12, "name": "total_blocks", "type": "uint32", "required": false},
@@ -111,6 +116,7 @@
         {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
         {"tag": 5, "name": "agent_name", "type": "string", "required": false},
         {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
+        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
         {"tag": 10, "name": "content", "type": "string", "required": false}
       ]
     },
@@ -125,6 +131,7 @@
         {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
         {"tag": 5, "name": "agent_name", "type": "string", "required": false},
         {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
+        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
         {"tag": 10, "name": "tool_name", "type": "string", "required": false},
         {"tag": 11, "name": "tool_input", "type": "map", "required": false},
         {"tag": 12, "name": "result", "type": "map", "required": false},
@@ -143,6 +150,7 @@
         {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
         {"tag": 5, "name": "agent_name", "type": "string", "required": false},
         {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
+        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
         {"tag": 10, "name": "metrics", "type": "map", "required": false},
         {"tag": 11, "name": "data", "type": "map", "required": false}
       ]
@@ -158,6 +166,7 @@
         {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
         {"tag": 5, "name": "agent_name", "type": "string", "required": false},
         {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
+        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
         {"tag": 10, "name": "orchestrator", "type": "string", "required": false},
         {"tag": 11, "name": "turn_count", "type": "uint32", "required": false},
         {"tag": 12, "name": "status", "type": "string", "required": false}
@@ -174,6 +183,7 @@
         {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
         {"tag": 5, "name": "agent_name", "type": "string", "required": false},
         {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
+        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
         {"tag": 10, "name": "agent", "type": "string", "required": false},
         {"tag": 11, "name": "sub_session_id", "type": "string", "required": false},
         {"tag": 12, "name": "parent_session_id_field", "type": "string", "required": false},
@@ -194,6 +204,7 @@
         {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
         {"tag": 5, "name": "agent_name", "type": "string", "required": false},
         {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
+        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
         {"tag": 10, "name": "details", "type": "map", "required": false}
       ]
     },
@@ -208,6 +219,7 @@
         {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
         {"tag": 5, "name": "agent_name", "type": "string", "required": false},
         {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
+        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
         {"tag": 10, "name": "level", "type": "string", "required": false},
         {"tag": 11, "name": "running_tools", "type": "array", "required": false},
         {"tag": 12, "name": "running_tool_names", "type": "array", "required": false},
@@ -226,6 +238,7 @@
         {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
         {"tag": 5, "name": "agent_name", "type": "string", "required": false},
         {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
+        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
         {"tag": 10, "name": "message", "type": "string", "required": false}
       ]
     },
@@ -240,6 +253,7 @@
         {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
         {"tag": 5, "name": "agent_name", "type": "string", "required": false},
         {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
+        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
         {"tag": 10, "name": "metadata", "type": "map", "required": false}
       ]
     },
@@ -254,6 +268,7 @@
         {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
         {"tag": 5, "name": "agent_name", "type": "string", "required": false},
         {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
+        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
         {"tag": 10, "name": "raw_data", "type": "map", "required": false},
         {"tag": 11, "name": "source", "type": "string", "required": false}
       ]

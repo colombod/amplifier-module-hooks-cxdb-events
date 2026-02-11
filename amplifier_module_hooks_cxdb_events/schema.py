@@ -103,6 +103,7 @@ def build_event_envelope(
     session_id: str,
     parent_session_id: str | None,
     agent_name: str | None,
+    root_session_id: str | None = None,
 ) -> dict[int, object]:
     """Build a msgpack-ready event envelope with integer tag keys.
 
@@ -114,6 +115,7 @@ def build_event_envelope(
       tag 5: agent_name (if set)
       tag 6: payload_bytes (set after serialization)
       tag 7: raw event data
+      tag 8: root_session_id (if set)
 
     Args:
         event_name: Amplifier event name (e.g., "tool:post").
@@ -121,6 +123,7 @@ def build_event_envelope(
         session_id: Session that emitted this event.
         parent_session_id: Parent session ID, or None for root.
         agent_name: Agent name, or None.
+        root_session_id: Root session ID for cross-context lineage, or None.
 
     Returns:
         Dict with integer keys ready for msgpack serialization.
@@ -137,6 +140,9 @@ def build_event_envelope(
 
     if agent_name is not None:
         envelope[5] = agent_name
+
+    if root_session_id is not None:
+        envelope[8] = root_session_id
 
     # Include raw event data at tag 7
     if data:

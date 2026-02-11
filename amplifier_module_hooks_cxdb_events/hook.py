@@ -128,9 +128,11 @@ class CXDBEventHook:
                     f"everything={self._everything_context_id}"
                 )
             else:
-                # Child sessions need to discover root's context IDs.
-                # For now, create own contexts (will be linked via session_id in events).
-                # TODO: Implement shared context lookup by root_session_id naming convention
+                # Child sessions create their own CXDB contexts. Events carry
+                # root_session_id, session_id, and parent_session_id in the
+                # envelope, enabling cross-context lineage reconstruction.
+                # A future optimization could share root's contexts directly
+                # via a CXDB metadata lookup or capability propagation.
                 self._turns_context_id, _ = await self._client.create_context()
                 self._everything_context_id, _ = await self._client.create_context()
                 logger.info(
@@ -262,6 +264,7 @@ class CXDBEventHook:
             session_id=self._session_id,
             parent_session_id=self._parent_id,
             agent_name=self._agent_name,
+            root_session_id=self._root_session_id,
         )
         payload_bytes = serialize_envelope(envelope)
 
