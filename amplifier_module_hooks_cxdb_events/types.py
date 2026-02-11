@@ -177,24 +177,50 @@ def _variant_rank(event_name: str) -> int:
 
 
 class VariantDeduplicator:
-    """Tracks seen event variants per orchestrator cycle.
+    """Pre-computed variant map for event deduplication.
 
-    Prefers :raw > :debug > base. Once a richer variant is seen,
-    less-rich variants of the same base event are suppressed.
+    At construction, scans all known events to determine the richest
+    registered variant for each base event (:raw > :debug > base).
+    At runtime, should_process() is a simple lookup -- only the
+    pre-determined best variant passes through.
 
-    Call reset() on orchestrator:complete to start a new cycle.
+    This avoids the arrival-order problem: Amplifier emits variants
+    in ascending richness (base -> :debug -> :raw), so a high-water-mark
+    approach would let all three through. The pre-computed map makes
+    the decision instant and deterministic regardless of arrival order.
     """
 
-    def __init__(self) -> None:
-        # Maps base_event -> highest rank seen
-        self._seen: dict[str, int] = {}
+    def __init__(self, known_events: list[str] | None = None) -> None:
+        # Maps base_event -> best full event name to accept
+        self._best_variant: dict[str, str] = {}
+        if known_events:
+            self._build_variant_map(known_events)
+
+    def _build_variant_map(self, events: list[str]) -> None:
+        """Pre-compute the best variant for each base event.
+
+        For each event family with variants, determines which registered
+        variant is richest and stores that as the one to accept.
+
+        Args:
+            events: All registered event names.
+        """
+        best_rank: dict[str, int] = {}
+        for event in events:
+            base = get_base_event(event)
+            if not has_variants(event):
+                continue
+            rank = _variant_rank(event)
+            if rank > best_rank.get(base, -1):
+                best_rank[base] = rank
+                self._best_variant[base] = event
 
     def should_process(self, event_name: str) -> bool:
         """Check if this event should be processed.
 
         Returns True if:
         - Event has no variants (always process), OR
-        - No richer variant of the same base event was already seen
+        - Event matches the pre-computed best variant for its family
 
         Args:
             event_name: Amplifier event name.
@@ -206,17 +232,9 @@ class VariantDeduplicator:
             return True
 
         base = get_base_event(event_name)
-        rank = _variant_rank(event_name)
-        prev_rank = self._seen.get(base, -1)
-
-        if rank > prev_rank:
-            # This is richer than anything we've seen -- process it
-            self._seen[base] = rank
+        best = self._best_variant.get(base)
+        if best is None:
+            # Unknown variant family -- process it
             return True
 
-        # We already have an equal or richer variant
-        return False
-
-    def reset(self) -> None:
-        """Clear variant tracking. Call on orchestrator:complete."""
-        self._seen.clear()
+        return event_name == best

@@ -51,6 +51,7 @@ class CXDBEventHook:
         session_id: str,
         parent_id: str | None,
         root_session_id: str,
+        known_events: list[str] | None = None,
     ) -> None:
         self._client = client
         self._config = config
@@ -67,7 +68,7 @@ class CXDBEventHook:
         # Components
         self._buffer = EventBuffer(max_size=config.get("buffer_size", 1000))
         self._turn_accumulator = TurnAccumulator()
-        self._variant_dedup = VariantDeduplicator()
+        self._variant_dedup = VariantDeduplicator(known_events=known_events)
 
         # State
         self._initialized = False
@@ -192,7 +193,6 @@ class CXDBEventHook:
             # Flush turns on orchestrator:complete
             if event == "orchestrator:complete":
                 await self._flush_turns()
-                self._variant_dedup.reset()
 
         except Exception as e:
             logger.debug(f"Error handling event {event}: {e}")

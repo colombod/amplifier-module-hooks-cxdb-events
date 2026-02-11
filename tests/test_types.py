@@ -142,66 +142,84 @@ class TestHasVariants:
 
 
 class TestVariantDeduplicator:
-    def test_raw_preferred_over_debug(self):
-        """When :raw seen first, :debug is suppressed."""
-        dedup = VariantDeduplicator()
+    """Tests for pre-computed variant map deduplication.
+
+    The deduplicator scans known_events at construction to determine the
+    richest variant per family, then only that variant passes should_process().
+    """
+
+    # Standard set: all three variants registered for session:start and llm:request
+    ALL_VARIANTS = [
+        "session:start", "session:start:debug", "session:start:raw",
+        "llm:request", "llm:request:debug", "llm:request:raw",
+        "llm:response", "llm:response:debug", "llm:response:raw",
+        "tool:post", "session:end", "prompt:submit",
+    ]
+
+    def test_only_raw_passes_when_all_registered(self):
+        """When all three variants are registered, only :raw passes."""
+        dedup = VariantDeduplicator(known_events=self.ALL_VARIANTS)
+        # :raw passes
         assert dedup.should_process("session:start:raw") is True
+        # :debug and base are suppressed
         assert dedup.should_process("session:start:debug") is False
         assert dedup.should_process("session:start") is False
 
-    def test_debug_accepted_if_no_raw(self):
-        """When :debug seen first (no :raw), base is suppressed."""
-        dedup = VariantDeduplicator()
+    def test_arrival_order_irrelevant(self):
+        """All three variants suppressed except :raw, regardless of arrival order."""
+        dedup = VariantDeduplicator(known_events=self.ALL_VARIANTS)
+        # Amplifier emits base first, then debug, then raw
+        assert dedup.should_process("session:start") is False
+        assert dedup.should_process("session:start:debug") is False
+        assert dedup.should_process("session:start:raw") is True
+
+    def test_debug_accepted_if_no_raw_registered(self):
+        """When only base and :debug are registered, :debug wins."""
+        events = ["session:start", "session:start:debug", "tool:post"]
+        dedup = VariantDeduplicator(known_events=events)
         assert dedup.should_process("session:start:debug") is True
         assert dedup.should_process("session:start") is False
 
-    def test_base_accepted_if_first(self):
-        """Base event accepted if seen first."""
-        dedup = VariantDeduplicator()
+    def test_base_accepted_if_only_variant(self):
+        """When only the base is registered, it passes."""
+        events = ["session:start", "tool:post"]
+        dedup = VariantDeduplicator(known_events=events)
         assert dedup.should_process("session:start") is True
-
-    def test_raw_overrides_previously_seen_debug(self):
-        """:raw overrides previously seen :debug."""
-        dedup = VariantDeduplicator()
-        assert dedup.should_process("session:start:debug") is True
-        assert dedup.should_process("session:start:raw") is True  # richer, accepted
-
-    def test_raw_overrides_previously_seen_base(self):
-        """:raw overrides previously seen base."""
-        dedup = VariantDeduplicator()
-        assert dedup.should_process("session:start") is True
-        assert dedup.should_process("session:start:raw") is True  # richer
 
     def test_independent_base_events(self):
-        """Different base events are tracked independently."""
-        dedup = VariantDeduplicator()
+        """Different base event families are tracked independently."""
+        dedup = VariantDeduplicator(known_events=self.ALL_VARIANTS)
         assert dedup.should_process("session:start:raw") is True
-        assert dedup.should_process("llm:request:raw") is True  # different base
-        assert dedup.should_process("session:start:debug") is False  # same base as first
+        assert dedup.should_process("llm:request:raw") is True
+        assert dedup.should_process("session:start:debug") is False
 
     def test_non_variant_events_always_processed(self):
-        """Events without variants are always processed."""
-        dedup = VariantDeduplicator()
+        """Events without variants always pass through."""
+        dedup = VariantDeduplicator(known_events=self.ALL_VARIANTS)
         assert dedup.should_process("tool:post") is True
-        assert dedup.should_process("tool:post") is True  # not deduplicated
+        assert dedup.should_process("tool:post") is True  # repeatable
         assert dedup.should_process("session:end") is True
 
-    def test_reset_clears_tracking(self):
-        """Reset clears all state."""
-        dedup = VariantDeduplicator()
-        assert dedup.should_process("session:start:raw") is True
-        dedup.reset()
+    def test_unknown_variant_family_passes(self):
+        """Events from unknown families (not in known_events) pass through."""
+        dedup = VariantDeduplicator(known_events=["tool:post"])
+        # session:start has variants but wasn't in known_events
         assert dedup.should_process("session:start:raw") is True
 
-    def test_reset_between_cycles(self):
-        """Simulates orchestrator cycles with reset between them."""
+    def test_empty_known_events(self):
+        """With no known events, everything passes (backward compat)."""
         dedup = VariantDeduplicator()
-        # Cycle 1
         assert dedup.should_process("session:start:raw") is True
-        assert dedup.should_process("session:start:debug") is False
-        dedup.reset()
-        # Cycle 2 - fresh
-        assert dedup.should_process("session:start:debug") is True  # accepted in new cycle
+        assert dedup.should_process("session:start:debug") is True
+        assert dedup.should_process("session:start") is True
+
+    def test_deterministic_across_calls(self):
+        """Same event always gets the same answer (no state mutation)."""
+        dedup = VariantDeduplicator(known_events=self.ALL_VARIANTS)
+        for _ in range(3):
+            assert dedup.should_process("session:start:raw") is True
+            assert dedup.should_process("session:start:debug") is False
+            assert dedup.should_process("session:start") is False
 
 
 class TestEventTypeMapCompleteness:

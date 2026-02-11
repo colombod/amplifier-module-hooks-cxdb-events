@@ -127,16 +127,33 @@ class TurnAccumulator:
         Only processes blocks with block_type='text'. Other block types
         (tool_use, etc.) are ignored for the turns context.
 
+        Handles two data layouts:
+        - Top-level: data["block_type"] = "text", data["block"] = "text content"
+        - Nested:    data["block"] = {"type": "text", "text": "text content"}
+
         Args:
-            data: Event data with block_type and block fields.
+            data: Event data with block_type and/or block fields.
         """
+        block = data.get("block")
+
+        # Determine block type from either top-level field or nested block.type
         block_type = data.get("block_type")
+        if block_type is None and isinstance(block, dict):
+            block_type = block.get("type")
+
         if block_type != "text":
             return
 
-        block = data.get("block")
-        if block is not None:
-            self._current.assistant_text_blocks.append(str(block))
+        # Extract text from either a dict block or a plain string
+        if isinstance(block, dict):
+            text = block.get("text", "")
+        elif block is not None:
+            text = str(block)
+        else:
+            return
+
+        if text:
+            self._current.assistant_text_blocks.append(text)
 
     def on_provider_request(self, data: dict) -> None:
         """Capture start time for latency measurement."""

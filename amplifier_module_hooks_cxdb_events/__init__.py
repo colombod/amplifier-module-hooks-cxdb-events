@@ -98,16 +98,34 @@ async def mount(coordinator: Any, config: dict[str, Any]) -> Any:
 
     # Apply exclusion filter
     user_excludes = set(config.get("exclude_events", []))
-    exclude_patterns = DEFAULT_EXCLUDES | user_excludes
+    exclude_patterns: set[str] = set(DEFAULT_EXCLUDES) | user_excludes
     events = [e for e in events if not _should_exclude(e, exclude_patterns)]
-
-    # Create the TCP client and hook
-    client = CXDBTcpClient(host=cxdb_host, port=cxdb_port, timeout=timeout)
 
     # Get session info from coordinator
     session_id = coordinator.session_id
     parent_id = coordinator.parent_id
     root_session_id = coordinator.config.get("root_session_id", session_id)
+
+    # Build client_tag: "amplifier - <project> - <root_session_id_short>"
+    # The client_tag identifies this connection in CXDB's UI and CQL queries.
+    project_name = coordinator.config.get("project_name", "")
+    if not project_name:
+        # Try to extract from project path if available
+        project_path = coordinator.config.get("project_path", "")
+        if project_path:
+            import os
+
+            project_name = os.path.basename(project_path.rstrip("/"))
+    tag_parts = ["amplifier"]
+    if project_name:
+        tag_parts.append(project_name)
+    tag_parts.append(root_session_id[:12])
+    client_tag = " - ".join(tag_parts)
+
+    # Create the TCP client and hook
+    client = CXDBTcpClient(
+        host=cxdb_host, port=cxdb_port, timeout=timeout, client_tag=client_tag
+    )
 
     hook = CXDBEventHook(
         client=client,
@@ -115,6 +133,7 @@ async def mount(coordinator: Any, config: dict[str, Any]) -> Any:
         session_id=session_id,
         parent_id=parent_id,
         root_session_id=root_session_id,
+        known_events=events,
     )
 
     # Register handler for each event
