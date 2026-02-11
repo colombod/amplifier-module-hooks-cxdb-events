@@ -9,13 +9,13 @@ from amplifier_module_hooks_cxdb_events.buffer import EventBuffer
 from amplifier_module_hooks_cxdb_events.protocol import CXDBTcpClient
 from amplifier_module_hooks_cxdb_events.schema import (
     build_context_metadata,
-    build_event_envelope,
+    build_event_as_system_item,
     extract_agent_name,
     publish_registry_bundle,
     serialize_envelope,
 )
 from amplifier_module_hooks_cxdb_events.turns import TurnAccumulator
-from amplifier_module_hooks_cxdb_events.types import VariantDeduplicator, get_cxdb_type
+from amplifier_module_hooks_cxdb_events.types import VariantDeduplicator
 
 logger = logging.getLogger(__name__)
 
@@ -121,16 +121,14 @@ class CXDBEventHook:
                         "Failed to publish registry bundle, continuing anyway"
                     )
 
-            # Create contexts and write context_metadata as first turn
+            # Create contexts and write context_metadata as first turn.
+            # TODO: child sessions should fork from parent via _SESSION_REGISTRY
+            # instead of creating independent contexts.
             project_name = self._config.get("_project_name", "")
             spawn_reason = "root" if self._is_root else "delegate"
 
-            if self._is_root:
-                self._turns_context_id, _, _ = await self._client.create_context()
-                self._everything_context_id, _, _ = await self._client.create_context()
-            else:
-                self._turns_context_id, _, _ = await self._client.create_context()
-                self._everything_context_id, _, _ = await self._client.create_context()
+            self._turns_context_id, _, _ = await self._client.create_context()
+            self._everything_context_id, _, _ = await self._client.create_context()
 
             # Write context_metadata as first turn to each context.
             # CXDB extracts tag 30 to populate title, labels, and provenance in the UI.
@@ -270,15 +268,16 @@ class CXDBEventHook:
     async def _write_to_everything_context(
         self, event: str, data: dict[str, Any]
     ) -> None:
-        """Write an event to the everything context.
+        """Write an event to the everything context as a ConversationItem system message.
 
-        Builds the envelope, serializes, and sends (or buffers on failure).
+        Wraps each event as cxdb.ConversationItem with item_type="system" so the
+        CXDB UI renders it with proper System badges instead of falling through
+        to the generic JSON viewer.
         """
         if self._everything_context_id is None:
             return
 
-        cxdb_type = get_cxdb_type(event)
-        envelope = build_event_envelope(
+        item = build_event_as_system_item(
             event_name=event,
             data=data,
             session_id=self._session_id,
@@ -286,35 +285,13 @@ class CXDBEventHook:
             agent_name=self._agent_name,
             root_session_id=self._root_session_id,
         )
-        payload_bytes = serialize_envelope(envelope)
 
-        try:
-            if self._client.connected:
-                # Flush buffer first (piggyback retry)
-                if self._buffer.size > 0:
-                    await self._buffer.flush(self._send_turn)
-
-                await self._client.append_turn(
-                    context_id=self._everything_context_id,
-                    payload=dict(envelope),  # serialize_payload expects dict
-                    declared_type_id=cxdb_type.type_id,
-                    declared_type_version=cxdb_type.type_version,
-                )
-            else:
-                self._buffer.enqueue(
-                    self._everything_context_id,
-                    payload_bytes,
-                    cxdb_type.type_id,
-                    cxdb_type.type_version,
-                )
-        except Exception:
-            # Buffer the event for retry
-            self._buffer.enqueue(
-                self._everything_context_id,
-                payload_bytes,
-                cxdb_type.type_id,
-                cxdb_type.type_version,
-            )
+        await self._write_turn(
+            self._everything_context_id,
+            item,
+            "cxdb.ConversationItem",
+            type_version=3,
+        )
 
     async def _flush_turns(self) -> None:
         """Flush accumulated turns to the turns context."""

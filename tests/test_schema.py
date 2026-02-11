@@ -10,7 +10,7 @@ import pytest
 from amplifier_module_hooks_cxdb_events.schema import (
     _BUNDLE_ID,
     _BUNDLE_PATH,
-    build_event_envelope,
+    build_event_as_system_item,
     calculate_payload_bytes,
     extract_agent_name,
     load_bundle_json,
@@ -247,134 +247,102 @@ class TestExtractAgentName:
         assert extract_agent_name("0000-aaaa_my-cool-agent") == "my-cool-agent"
 
 
-class TestBuildEventEnvelope:
-    def test_required_fields_present(self):
-        """Envelope has event_name (1), session_id (2), timestamp_ms (4), payload_bytes (6)."""
-        envelope = build_event_envelope(
+class TestBuildEventAsSystemItem:
+    """Tests for build_event_as_system_item which wraps events as ConversationItem system messages."""
+
+    def test_produces_system_conversation_item(self):
+        """Output is a ConversationItem with item_type=system."""
+        item = build_event_as_system_item(
             event_name="tool:post",
             data={"tool_name": "grep"},
             session_id="abc-123",
             parent_session_id=None,
             agent_name=None,
         )
-        assert envelope[1] == "tool:post"
-        assert envelope[2] == "abc-123"
-        assert isinstance(envelope[4], int)
-        assert envelope[4] > 0  # timestamp
-        assert isinstance(envelope[6], int)
-        assert envelope[6] > 0  # payload_bytes
+        assert item[1] == "system"  # item_type
+        assert item[2] == "complete"  # status
+        assert isinstance(item[3], int) and item[3] > 0  # timestamp
+        assert isinstance(item[4], str) and len(item[4]) > 0  # id
 
-    def test_parent_session_id_included_when_set(self):
-        """Tag 3 present when parent_session_id is not None."""
-        envelope = build_event_envelope(
-            event_name="session:fork",
-            data={},
-            session_id="child-123",
-            parent_session_id="root-456",
-            agent_name=None,
-        )
-        assert envelope[3] == "root-456"
-
-    def test_parent_session_id_absent_when_none(self):
-        """Tag 3 absent when parent_session_id is None."""
-        envelope = build_event_envelope(
-            event_name="session:start",
-            data={},
-            session_id="root-123",
+    def test_system_subtree_has_event_name_as_title(self):
+        """SystemMessage title is the event name."""
+        item = build_event_as_system_item(
+            event_name="tool:post",
+            data={"tool_name": "grep"},
+            session_id="abc-123",
             parent_session_id=None,
             agent_name=None,
         )
-        assert 3 not in envelope
+        system = item[12]  # SystemMessage subtree
+        assert system[2] == "tool:post"  # title
+        assert isinstance(system[3], str) and len(system[3]) > 0  # content (JSON data)
 
-    def test_agent_name_included_when_set(self):
-        """Tag 5 present when agent_name is not None."""
-        envelope = build_event_envelope(
+    def test_agent_name_in_title_when_set(self):
+        """Agent name is prepended to the title."""
+        item = build_event_as_system_item(
             event_name="tool:post",
             data={},
             session_id="child-123",
             parent_session_id="root-456",
             agent_name="foundation:explorer",
         )
-        assert envelope[5] == "foundation:explorer"
+        system = item[12]
+        assert "[foundation:explorer]" in system[2]
+        assert "tool:post" in system[2]
 
-    def test_agent_name_absent_when_none(self):
-        """Tag 5 absent when agent_name is None."""
-        envelope = build_event_envelope(
-            event_name="session:start",
-            data={},
-            session_id="root-123",
-            parent_session_id=None,
-            agent_name=None,
-        )
-        assert 5 not in envelope
+    def test_kind_reflects_event_category(self):
+        """SystemMessage kind is derived from the event name."""
+        error_item = build_event_as_system_item("tool:error", {}, "s", None, None)
+        assert error_item[12][1] == "error"
 
-    def test_event_data_at_tag_7(self):
-        """Raw event data included at tag 7."""
-        envelope = build_event_envelope(
+        lifecycle_item = build_event_as_system_item("session:start", {}, "s", None, None)
+        assert lifecycle_item[12][1] == "lifecycle"
+
+        llm_item = build_event_as_system_item("llm:request:raw", {}, "s", None, None)
+        assert llm_item[12][1] == "llm"
+
+        tool_item = build_event_as_system_item("tool:post", {}, "s", None, None)
+        assert tool_item[12][1] == "tool"
+
+        other_item = build_event_as_system_item("prompt:submit", {}, "s", None, None)
+        assert other_item[12][1] == "info"
+
+    def test_data_serialized_into_content(self):
+        """Event data is JSON-serialized into the system content field."""
+        item = build_event_as_system_item(
             event_name="tool:post",
             data={"tool_name": "grep", "result": "5 matches"},
             session_id="abc-123",
             parent_session_id=None,
             agent_name=None,
         )
-        assert 7 in envelope
-        assert envelope[7]["tool_name"] == "grep"
+        content = item[12][3]
+        assert "grep" in content
+        assert "5 matches" in content
 
-    def test_event_data_filters_default_fields(self):
-        """Default fields (session_id, parent_id, ts) are filtered from tag 7."""
-        envelope = build_event_envelope(
+    def test_default_fields_filtered_from_content(self):
+        """session_id, parent_id, ts are excluded from serialized content."""
+        item = build_event_as_system_item(
             event_name="session:start",
-            data={
-                "session_id": "abc",
-                "parent_id": None,
-                "ts": 123,
-                "extra": "value",
-            },
+            data={"session_id": "abc", "parent_id": None, "ts": 123, "extra": "value"},
             session_id="abc",
             parent_session_id=None,
             agent_name=None,
         )
-        if 7 in envelope:
-            assert "session_id" not in envelope[7]
-            assert "parent_id" not in envelope[7]
-            assert "ts" not in envelope[7]
-            assert envelope[7]["extra"] == "value"
-
-    def test_empty_data_no_tag_7(self):
-        """Empty data dict means tag 7 is absent."""
-        envelope = build_event_envelope(
-            event_name="session:end",
-            data={},
-            session_id="abc",
-            parent_session_id=None,
-            agent_name=None,
-        )
-        assert 7 not in envelope
+        content = item[12][3]
+        assert "extra" in content
+        # session_id/parent_id/ts are filtered out
+        import json
+        parsed = json.loads(content)
+        assert "session_id" not in parsed
+        assert "parent_id" not in parsed
 
     def test_timestamp_is_recent(self):
         """Timestamp should be close to current time."""
         before = int(time.time() * 1000)
-        envelope = build_event_envelope(
-            event_name="test",
-            data={},
-            session_id="abc",
-            parent_session_id=None,
-            agent_name=None,
-        )
+        item = build_event_as_system_item("test", {}, "abc", None, None)
         after = int(time.time() * 1000)
-        assert before <= envelope[4] <= after
-
-    def test_payload_bytes_matches_serialized_size(self):
-        """Tag 6 (payload_bytes) matches actual serialized size."""
-        envelope = build_event_envelope(
-            event_name="tool:post",
-            data={"tool_name": "grep", "result": "lots of data here"},
-            session_id="session-123",
-            parent_session_id="parent-456",
-            agent_name="explorer",
-        )
-        serialized = serialize_envelope(envelope)
-        assert envelope[6] == len(serialized)
+        assert before <= item[3] <= after
 
 
 class TestSerializeEnvelope:

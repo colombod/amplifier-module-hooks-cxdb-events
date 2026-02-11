@@ -342,7 +342,7 @@ def extract_agent_name(session_id: str) -> str | None:
     return None
 
 
-def build_event_envelope(
+def build_event_as_system_item(
     event_name: str,
     data: dict,
     session_id: str,
@@ -350,17 +350,19 @@ def build_event_envelope(
     agent_name: str | None,
     root_session_id: str | None = None,
 ) -> dict[int, object]:
-    """Build a msgpack-ready event envelope with integer tag keys.
+    """Wrap an Amplifier event as a cxdb.ConversationItem system message.
 
-    The envelope follows the common schema across all amplifier.* types:
-      tag 1: event_name
-      tag 2: session_id
-      tag 3: parent_session_id (if set)
-      tag 4: timestamp_ms
-      tag 5: agent_name (if set)
-      tag 6: payload_bytes (set after serialization)
-      tag 7: raw event data
-      tag 8: root_session_id (if set)
+    This ensures the CXDB UI renders events with proper "System" badges
+    and readable content instead of falling through to the generic JSON viewer.
+
+    Uses the ConversationItem v3 discriminated union layout:
+      tag 1: item_type = "system"
+      tag 2: status = "complete"
+      tag 3: timestamp (i64 unix_ms)
+      tag 4: id (deterministic hash)
+      tag 12: SystemMessage {kind, title, content}
+
+    The content field contains a compact summary of the event data.
 
     Args:
         event_name: Amplifier event name (e.g., "tool:post").
@@ -371,39 +373,50 @@ def build_event_envelope(
         root_session_id: Root session ID for cross-context lineage, or None.
 
     Returns:
-        Dict with integer keys ready for msgpack serialization.
-        The payload_bytes field (tag 6) reflects the serialized size.
+        Dict with integer keys matching cxdb.ConversationItem v3.
     """
-    envelope: dict[int, object] = {
-        1: event_name,
-        2: session_id,
-        4: int(time.time() * 1000),
+    ts = _ts_ms()
+
+    # Determine the kind based on event category
+    if "error" in event_name:
+        kind = "error"
+    elif event_name.startswith("session:") or event_name.startswith("execution:"):
+        kind = "lifecycle"
+    elif "llm:" in event_name or "provider:" in event_name:
+        kind = "llm"
+    elif "tool:" in event_name:
+        kind = "tool"
+    else:
+        kind = "info"
+
+    # Build a readable content summary from the event data
+    filtered = {
+        k: v for k, v in data.items()
+        if k not in ("session_id", "parent_id", "ts") and v is not None
+    }
+    # Compact JSON, truncated for readability
+    content_str = json.dumps(filtered, default=str, ensure_ascii=False)
+    if len(content_str) > 4000:
+        content_str = content_str[:4000] + "..."
+
+    # Build the title with optional agent/session context
+    title = event_name
+    if agent_name:
+        title = f"[{agent_name}] {event_name}"
+
+    item: dict[int, object] = {
+        TAG_ITEM_TYPE: "system",
+        TAG_STATUS: "complete",
+        TAG_TIMESTAMP: ts,
+        TAG_ID: _make_item_id(session_id, event_name, ts),
+        TAG_SYSTEM: {
+            SM_TAG_KIND: kind,
+            SM_TAG_TITLE: title,
+            SM_TAG_CONTENT: content_str,
+        },
     }
 
-    if parent_session_id is not None:
-        envelope[3] = parent_session_id
-
-    if agent_name is not None:
-        envelope[5] = agent_name
-
-    if root_session_id is not None:
-        envelope[8] = root_session_id
-
-    # Include raw event data at tag 7
-    if data:
-        # Filter out default fields already in envelope to avoid duplication
-        filtered_data = {
-            k: v for k, v in data.items() if k not in ("session_id", "parent_id", "ts")
-        }
-        if filtered_data:
-            envelope[7] = filtered_data
-
-    # Calculate payload_bytes: serialize without the size field, measure, then set it
-    envelope[6] = 0  # placeholder
-    serialized = serialize_envelope(envelope)
-    envelope[6] = len(serialized)
-
-    return envelope
+    return item
 
 
 def serialize_envelope(envelope: dict[int, object]) -> bytes:
