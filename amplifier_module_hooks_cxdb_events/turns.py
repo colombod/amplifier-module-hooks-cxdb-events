@@ -48,6 +48,7 @@ class TurnAccumulator:
     def __init__(self) -> None:
         self._current = AccumulatedTurn()
         self._execution_ended = False
+        self._request_start_mono: float | None = None
 
     def on_prompt_submit(self, data: dict) -> None:
         """Buffer user message from prompt:submit event.
@@ -69,6 +70,8 @@ class TurnAccumulator:
         """
         tool_name = data.get("tool_name", "unknown")
         tool_input = data.get("tool_input", {})
+        # Amplifier uses "tool_call_id", some events use "call_id"
+        call_id = data.get("tool_call_id") or data.get("call_id")
 
         # Create abbreviated input summary
         if isinstance(tool_input, dict):
@@ -79,31 +82,44 @@ class TurnAccumulator:
         record = ToolCallRecord(
             tool_name=tool_name,
             input_summary=summary,
-            call_id=data.get("call_id"),
+            call_id=call_id,
         )
         self._current.tool_calls.append(record)
 
     def on_tool_post(self, data: dict) -> None:
         """Complete a tool call record from tool:post event.
 
-        Matches by tool_name (last unmatched pre with same name).
+        Matches by call_id first (preferred, handles parallel same-tool calls),
+        then falls back to tool_name matching for events without call_id.
 
         Args:
             data: Event data with tool_name, result, etc.
         """
         tool_name = data.get("tool_name", "unknown")
+        call_id = data.get("tool_call_id") or data.get("call_id")
         result = data.get("result")
         error = data.get("error")
 
-        # Find the last unmatched tool:pre with the same name
+        # Try matching by call_id first (handles parallel same-tool calls)
+        if call_id:
+            for record in reversed(self._current.tool_calls):
+                if record.call_id == call_id and not record.has_result:
+                    record.has_result = True
+                    if result is not None:
+                        record.result = str(result)[:500]
+                    if error is not None:
+                        record.error = str(error)[:500]
+                    return
+
+        # Fall back to tool_name matching (for events without call_id)
         for record in reversed(self._current.tool_calls):
             if record.tool_name == tool_name and not record.has_result:
                 record.has_result = True
                 if result is not None:
-                    record.result = str(result)[:500]  # truncate for summary
+                    record.result = str(result)[:500]
                 if error is not None:
                     record.error = str(error)[:500]
-                break
+                return
 
     def on_content_block_end(self, data: dict) -> None:
         """Accumulate assistant text block from content_block:end event.
@@ -121,6 +137,12 @@ class TurnAccumulator:
         block = data.get("block")
         if block is not None:
             self._current.assistant_text_blocks.append(str(block))
+
+    def on_provider_request(self, data: dict) -> None:
+        """Capture start time for latency measurement."""
+        import time
+
+        self._request_start_mono = time.monotonic()
 
     def on_provider_response(self, data: dict) -> None:
         """Capture metrics from provider:response event.
@@ -163,6 +185,14 @@ class TurnAccumulator:
             "provider": data.get("provider", ""),
         }
 
+        # Compute wall-clock latency if provider:request was seen
+        if self._request_start_mono is not None:
+            import time
+
+            duration_ms = int((time.monotonic() - self._request_start_mono) * 1000)
+            self._current.metrics["duration_ms"] = duration_ms
+            self._request_start_mono = None
+
     def on_execution_end(self) -> None:
         """Mark execution as ended for straggler suppression."""
         self._execution_ended = True
@@ -201,6 +231,7 @@ class TurnAccumulator:
         # Reset state
         self._current = AccumulatedTurn()
         self._execution_ended = False
+        self._request_start_mono = None
 
         return turn if has_data else None
 

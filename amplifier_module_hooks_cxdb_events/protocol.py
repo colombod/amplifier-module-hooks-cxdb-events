@@ -365,8 +365,16 @@ class CXDBTcpClient:
 
             # Check for error response
             if resp_type == MSG_ERROR:
-                error_msg = resp_payload.decode("utf-8", errors="replace")
-                raise CXDBProtocolError(f"CXDB error: {error_msg}")
+                if len(resp_payload) >= 8:
+                    error_code, detail_len = struct.unpack("<II", resp_payload[:8])
+                    detail = resp_payload[8 : 8 + detail_len].decode(
+                        "utf-8", errors="replace"
+                    )
+                    raise CXDBProtocolError(f"CXDB error (code={error_code}): {detail}")
+                else:
+                    # Fallback for unexpected error format
+                    error_msg = resp_payload.decode("utf-8", errors="replace")
+                    raise CXDBProtocolError(f"CXDB error: {error_msg}")
 
             return resp_payload
 

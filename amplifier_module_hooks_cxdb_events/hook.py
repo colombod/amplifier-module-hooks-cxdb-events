@@ -25,6 +25,7 @@ _TURN_EVENTS = frozenset(
         "content_block:end",
         "tool:pre",
         "tool:post",
+        "provider:request",
         "provider:response",
         "orchestrator:complete",
         "execution:end",
@@ -242,6 +243,8 @@ class CXDBEventHook:
             self._turn_accumulator.on_tool_pre(data)
         elif event == "tool:post":
             self._turn_accumulator.on_tool_post(data)
+        elif event == "provider:request":
+            self._turn_accumulator.on_provider_request(data)
         elif event == "provider:response":
             self._turn_accumulator.on_provider_response(data)
         elif event == "execution:end":

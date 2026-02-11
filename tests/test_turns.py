@@ -1,6 +1,5 @@
 """Tests for TurnAccumulator - conversation turn buffering and flush."""
 
-
 from amplifier_module_hooks_cxdb_events.turns import (
     AccumulatedTurn,
     ToolCallRecord,
@@ -353,3 +352,86 @@ class TestToConversationItems:
             assert 4 in item
             assert isinstance(item[4], int)
             assert item[4] > 0
+
+
+class TestToolCallIdMatching:
+    def test_tool_post_matches_by_call_id(self):
+        """Parallel same-tool calls matched by call_id, not tool_name."""
+        acc = TurnAccumulator()
+        acc.on_tool_pre(
+            {
+                "tool_name": "read_file",
+                "tool_call_id": "call_A",
+                "tool_input": {"file_path": "a.py"},
+            }
+        )
+        acc.on_tool_pre(
+            {
+                "tool_name": "read_file",
+                "tool_call_id": "call_B",
+                "tool_input": {"file_path": "b.py"},
+            }
+        )
+        # Results arrive in reverse order
+        acc.on_tool_post(
+            {
+                "tool_name": "read_file",
+                "tool_call_id": "call_B",
+                "result": "content of b",
+            }
+        )
+        acc.on_tool_post(
+            {
+                "tool_name": "read_file",
+                "tool_call_id": "call_A",
+                "result": "content of a",
+            }
+        )
+        turn = acc.flush()
+        assert len(turn.tool_calls) == 2
+        assert turn.tool_calls[0].call_id == "call_A"
+        assert "content of a" in turn.tool_calls[0].result
+        assert turn.tool_calls[1].call_id == "call_B"
+        assert "content of b" in turn.tool_calls[1].result
+
+    def test_tool_post_falls_back_to_name_without_call_id(self):
+        """Without call_id, falls back to tool_name matching."""
+        acc = TurnAccumulator()
+        acc.on_tool_pre({"tool_name": "grep", "tool_input": {"pattern": "test"}})
+        acc.on_tool_post({"tool_name": "grep", "result": "found"})
+        turn = acc.flush()
+        assert turn.tool_calls[0].has_result
+
+
+class TestDurationMs:
+    def test_duration_ms_captured(self):
+        """Duration computed from provider:request to provider:response."""
+        import time
+
+        acc = TurnAccumulator()
+        acc.on_provider_request({"provider": "anthropic", "iteration": 1})
+        time.sleep(0.01)  # small delay
+        acc.on_provider_response(
+            {
+                "usage": {"input_tokens": 10, "output_tokens": 20},
+                "provider": "anthropic",
+            }
+        )
+        acc.on_prompt_submit({"prompt": "test"})
+        turn = acc.flush()
+        assert turn.metrics is not None
+        assert "duration_ms" in turn.metrics
+        assert turn.metrics["duration_ms"] >= 10  # at least 10ms
+
+    def test_duration_ms_absent_without_request(self):
+        """No duration if provider:request wasn't seen."""
+        acc = TurnAccumulator()
+        acc.on_provider_response(
+            {
+                "usage": {"input_tokens": 10, "output_tokens": 20},
+                "provider": "anthropic",
+            }
+        )
+        acc.on_prompt_submit({"prompt": "test"})
+        turn = acc.flush()
+        assert "duration_ms" not in turn.metrics

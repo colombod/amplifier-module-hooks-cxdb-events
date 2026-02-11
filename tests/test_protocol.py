@@ -394,3 +394,22 @@ class TestClientAppendTurn:
                 payload={1: "test"},
                 declared_type_id="amplifier.GenericEvent",
             )
+
+
+class TestErrorResponseParsing:
+    def test_error_response_parsed_correctly(self):
+        """Error frames with binary prefix are parsed correctly."""
+        # Build error payload: code(u32) + detail_len(u32) + detail_text
+        error_code = 404
+        detail = b"context not found"
+        error_payload = struct.pack("<II", error_code, len(detail)) + detail
+
+        # Build error frame
+        error_frame = encode_frame(MSG_ERROR, request_id=1, payload=error_payload)
+
+        # Decode and verify the payload is structured
+        _, _, _, payload = decode_frame(error_frame)
+        code, detail_len = struct.unpack("<II", payload[:8])
+        assert code == 404
+        detail_text = payload[8 : 8 + detail_len].decode("utf-8")
+        assert detail_text == "context not found"
