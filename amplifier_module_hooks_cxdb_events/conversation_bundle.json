@@ -7,15 +7,105 @@
         "3": {
           "fields": {
             "1": {"name": "item_type", "type": "string"},
-            "2": {"name": "content", "type": "string", "optional": true},
-            "3": {"name": "tool_calls", "type": "array", "optional": true},
-            "4": {"name": "timestamp", "type": "uint64"},
-            "5": {"name": "metrics", "type": "map", "optional": true},
-            "6": {"name": "agent", "type": "string", "optional": true},
-            "7": {"name": "finish_reason", "type": "string", "optional": true},
-            "8": {"name": "reasoning", "type": "string", "optional": true},
+            "2": {"name": "status", "type": "string", "optional": true},
+            "3": {"name": "timestamp", "type": "i64", "semantic": "unix_ms", "optional": true},
+            "4": {"name": "id", "type": "string", "optional": true},
+            "10": {"name": "user_input", "type": "map", "ref": "cxdb.UserInput", "optional": true},
+            "11": {"name": "turn", "type": "map", "ref": "cxdb.AssistantTurn", "optional": true},
             "12": {"name": "system", "type": "map", "ref": "cxdb.SystemMessage", "optional": true},
+            "13": {"name": "handoff", "type": "map", "ref": "cxdb.HandoffInfo", "optional": true},
             "30": {"name": "context_metadata", "type": "map", "ref": "cxdb.ContextMetadata", "optional": true}
+          }
+        }
+      }
+    },
+    "cxdb.UserInput": {
+      "versions": {
+        "3": {
+          "fields": {
+            "1": {"name": "text", "type": "string"},
+            "2": {"name": "files", "type": "array", "items": "string", "optional": true}
+          }
+        }
+      }
+    },
+    "cxdb.AssistantTurn": {
+      "versions": {
+        "3": {
+          "fields": {
+            "1": {"name": "text", "type": "string"},
+            "2": {"name": "tool_calls", "type": "array", "items": {"ref": "cxdb.ToolCallItem"}, "optional": true},
+            "3": {"name": "reasoning", "type": "string", "optional": true},
+            "4": {"name": "metrics", "type": "map", "ref": "cxdb.TurnMetrics", "optional": true},
+            "5": {"name": "agent", "type": "string", "optional": true},
+            "8": {"name": "finish_reason", "type": "string", "optional": true},
+            "9": {"name": "raw_request", "type": "string", "optional": true},
+            "10": {"name": "raw_response", "type": "string", "optional": true}
+          }
+        }
+      }
+    },
+    "cxdb.TurnMetrics": {
+      "versions": {
+        "3": {
+          "fields": {
+            "1": {"name": "input_tokens", "type": "i64"},
+            "2": {"name": "output_tokens", "type": "i64"},
+            "3": {"name": "total_tokens", "type": "i64"},
+            "4": {"name": "cached_tokens", "type": "i64", "optional": true},
+            "5": {"name": "reasoning_tokens", "type": "i64", "optional": true},
+            "6": {"name": "duration_ms", "type": "i64", "semantic": "duration_ms", "optional": true},
+            "7": {"name": "model", "type": "string", "optional": true},
+            "8": {"name": "provider", "type": "string", "optional": true},
+            "9": {"name": "request_id", "type": "string", "optional": true}
+          }
+        }
+      }
+    },
+    "cxdb.ToolCallItem": {
+      "versions": {
+        "3": {
+          "fields": {
+            "1": {"name": "id", "type": "string"},
+            "2": {"name": "name", "type": "string"},
+            "3": {"name": "args", "type": "string", "optional": true},
+            "4": {"name": "status", "type": "string"},
+            "8": {"name": "result", "type": "map", "ref": "cxdb.ToolCallResult", "optional": true},
+            "9": {"name": "error", "type": "map", "ref": "cxdb.ToolCallError", "optional": true},
+            "10": {"name": "duration_ms", "type": "i64", "semantic": "duration_ms", "optional": true}
+          }
+        }
+      }
+    },
+    "cxdb.ToolCallResult": {
+      "versions": {
+        "3": {
+          "fields": {
+            "1": {"name": "content", "type": "string"},
+            "3": {"name": "success", "type": "bool"}
+          }
+        }
+      }
+    },
+    "cxdb.ToolCallError": {
+      "versions": {
+        "3": {
+          "fields": {
+            "1": {"name": "code", "type": "string", "optional": true},
+            "2": {"name": "message", "type": "string"}
+          }
+        }
+      }
+    },
+    "cxdb.HandoffInfo": {
+      "versions": {
+        "3": {
+          "fields": {
+            "1": {"name": "from_agent", "type": "string", "optional": true},
+            "2": {"name": "to_agent", "type": "string"},
+            "3": {"name": "tool_name", "type": "string", "optional": true},
+            "4": {"name": "input", "type": "string", "optional": true},
+            "5": {"name": "reason", "type": "string", "optional": true}
           }
         }
       }

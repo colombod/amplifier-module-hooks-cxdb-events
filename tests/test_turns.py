@@ -274,10 +274,14 @@ class TestToConversationItems:
         )
         items = acc.to_conversation_items(turn)
         assert len(items) == 2
+        # User input: tag 1=item_type, tag 2=status, tag 10=UserInput{1:text}
         assert items[0][1] == "user_input"
-        assert items[0][2] == "Hello"
+        assert items[0][2] == "complete"
+        assert items[0][10] == {1: "Hello"}
+        # Assistant turn: tag 1=item_type, tag 11=AssistantTurn{1:text}
         assert items[1][1] == "assistant_turn"
-        assert items[1][2] == "Hi there!"
+        assert items[1][2] == "complete"
+        assert items[1][11][1] == "Hi there!"
 
     def test_user_only(self):
         """Turn with only user prompt produces 1 item."""
@@ -288,7 +292,7 @@ class TestToConversationItems:
         assert items[0][1] == "user_input"
 
     def test_assistant_with_tool_calls(self):
-        """Assistant turn includes tool_calls array at tag 3."""
+        """Assistant turn includes tool_calls in AssistantTurn subtree (tag 11.2)."""
         acc = TurnAccumulator()
         turn = AccumulatedTurn(
             user_prompt="Search",
@@ -304,14 +308,14 @@ class TestToConversationItems:
         )
         items = acc.to_conversation_items(turn)
         assert len(items) == 2
-        assistant = items[1]
-        assert 3 in assistant  # tool_calls at tag 3
-        assert len(assistant[3]) == 1
-        assert assistant[3][0]["tool_name"] == "grep"
-        assert assistant[3][0]["has_result"] is True
+        assistant_turn = items[1][11]  # AssistantTurn subtree
+        assert 2 in assistant_turn  # tool_calls at AssistantTurn.tag 2
+        assert len(assistant_turn[2]) == 1
+        assert assistant_turn[2][0][2] == "grep"  # ToolCallItem.name
+        assert assistant_turn[2][0][4] == "complete"  # ToolCallItem.status
 
     def test_assistant_with_metrics(self):
-        """Assistant turn includes metrics at tag 5."""
+        """Assistant turn includes metrics in AssistantTurn subtree (tag 11.4)."""
         acc = TurnAccumulator()
         turn = AccumulatedTurn(
             user_prompt="Test",
@@ -319,19 +323,20 @@ class TestToConversationItems:
             metrics={"total_tokens": 100, "model": "test-model"},
         )
         items = acc.to_conversation_items(turn)
-        assistant = items[1]
-        assert 5 in assistant
-        assert assistant[5]["total_tokens"] == 100
+        assistant_turn = items[1][11]  # AssistantTurn subtree
+        assert 4 in assistant_turn  # TurnMetrics at AssistantTurn.tag 4
+        assert assistant_turn[4][3] == 100  # TurnMetrics.total_tokens at tag 3
+        assert assistant_turn[4][7] == "test-model"  # TurnMetrics.model at tag 7
 
     def test_multiple_text_blocks_concatenated(self):
-        """Multiple text blocks are concatenated in the assistant item."""
+        """Multiple text blocks are concatenated in AssistantTurn.text."""
         acc = TurnAccumulator()
         turn = AccumulatedTurn(
             assistant_text_blocks=["Part 1. ", "Part 2."],
         )
         items = acc.to_conversation_items(turn)
         assert len(items) == 1  # no user, just assistant
-        assert items[0][2] == "Part 1. Part 2."
+        assert items[0][11][1] == "Part 1. Part 2."  # AssistantTurn.text
 
     def test_empty_turn_produces_no_items(self):
         """Turn with no data produces empty list."""
@@ -340,8 +345,8 @@ class TestToConversationItems:
         items = acc.to_conversation_items(turn)
         assert items == []
 
-    def test_items_have_timestamps(self):
-        """All items have timestamp at tag 4."""
+    def test_items_have_envelope_fields(self):
+        """All items have status(tag 2), timestamp(tag 3), and id(tag 4)."""
         acc = TurnAccumulator()
         turn = AccumulatedTurn(
             user_prompt="Hello",
@@ -349,9 +354,9 @@ class TestToConversationItems:
         )
         items = acc.to_conversation_items(turn)
         for item in items:
-            assert 4 in item
-            assert isinstance(item[4], int)
-            assert item[4] > 0
+            assert item[2] == "complete"  # status
+            assert isinstance(item[3], int) and item[3] > 0  # timestamp
+            assert isinstance(item[4], str) and len(item[4]) > 0  # id
 
 
 class TestToolCallIdMatching:

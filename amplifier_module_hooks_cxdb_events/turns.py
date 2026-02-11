@@ -256,15 +256,18 @@ class TurnAccumulator:
         """Convert an AccumulatedTurn to ConversationItem v3 msgpack dicts.
 
         Produces up to 2 items: one user_input and one assistant_turn.
-        Uses integer tag keys matching the ConversationItem v3 schema:
-          tag 1: item_type
-          tag 2: content
-          tag 3: tool_calls
-          tag 4: timestamp (set by caller)
-          tag 5: metrics
-          tag 6: agent
-          tag 7: finish_reason
-          tag 8: reasoning
+        Uses Brian's discriminated union layout matching the CXDB UI:
+
+        ConversationItem envelope (tags 1-4):
+          tag 1: item_type  ("user_input" | "assistant_turn")
+          tag 2: status     ("complete")
+          tag 3: timestamp  (i64, unix_ms)
+          tag 4: id         (deterministic hash)
+
+        Variant subtrees (exactly one populated):
+          tag 10: UserInput   {1: text}
+          tag 11: AssistantTurn {1: text, 2: tool_calls[], 3: reasoning,
+                                 4: TurnMetrics, 5: agent, 8: finish_reason}
 
         Args:
             turn: The accumulated turn data.
@@ -273,54 +276,96 @@ class TurnAccumulator:
             List of msgpack-ready dicts (0-2 items).
         """
         items: list[dict[int, object]] = []
+        import hashlib
         import time
 
         timestamp_ms = int(time.time() * 1000)
+
+        def _make_id(label: str) -> str:
+            raw = f"{label}:{timestamp_ms}"
+            return hashlib.sha256(raw.encode()).hexdigest()[:24]
 
         # User input item
         if turn.user_prompt is not None:
             user_item: dict[int, object] = {
                 1: "user_input",
-                2: turn.user_prompt,
-                4: timestamp_ms,
+                2: "complete",
+                3: timestamp_ms,
+                4: _make_id("user_input"),
+                10: {1: turn.user_prompt},  # UserInput.text
             }
             items.append(user_item)
 
         # Assistant turn item
         has_assistant_data = turn.assistant_text_blocks or turn.tool_calls
         if has_assistant_data:
-            # Concatenate text blocks
             text = "".join(turn.assistant_text_blocks)
 
-            assistant_item: dict[int, object] = {
-                1: "assistant_turn",
-                4: timestamp_ms,
-            }
+            # Build the AssistantTurn subtree (tag 11)
+            assistant_turn: dict[int, object] = {}
 
             if text:
-                assistant_item[2] = text
+                assistant_turn[1] = text  # AssistantTurn.text
 
             if turn.tool_calls:
-                assistant_item[3] = [
-                    {
-                        "tool_name": tc.tool_name,
-                        "input_summary": tc.input_summary,
-                        "has_result": tc.has_result,
-                        **({"result": tc.result} if tc.result else {}),
-                        **({"error": tc.error} if tc.error else {}),
-                    }
+                assistant_turn[2] = [  # AssistantTurn.tool_calls
+                    self._build_tool_call_item(tc)
                     for tc in turn.tool_calls
                 ]
 
             if turn.metrics:
-                assistant_item[5] = turn.metrics
+                assistant_turn[4] = self._build_metrics(turn.metrics)
 
             if turn.agent_name:
-                assistant_item[6] = turn.agent_name
+                assistant_turn[5] = turn.agent_name  # AssistantTurn.agent
 
             if turn.finish_reason:
-                assistant_item[7] = turn.finish_reason
+                assistant_turn[8] = turn.finish_reason  # AssistantTurn.finish_reason
 
+            assistant_item: dict[int, object] = {
+                1: "assistant_turn",
+                2: "complete",
+                3: timestamp_ms,
+                4: _make_id("assistant_turn"),
+                11: assistant_turn,  # ConversationItem.turn
+            }
             items.append(assistant_item)
 
         return items
+
+    @staticmethod
+    def _build_tool_call_item(tc: ToolCallRecord) -> dict[int, object]:
+        """Build a ToolCallItem dict matching cxdb.ToolCallItem v3 tags."""
+        item: dict[int, object] = {
+            1: tc.call_id or "",  # ToolCallItem.id
+            2: tc.tool_name,  # ToolCallItem.name
+            3: tc.input_summary,  # ToolCallItem.args
+            4: "complete" if tc.has_result else "pending",  # ToolCallItem.status
+        }
+        if tc.result is not None:
+            item[8] = {1: tc.result, 3: True}  # ToolCallResult {content, success}
+        if tc.error is not None:
+            item[9] = {2: tc.error}  # ToolCallError {message}
+        return item
+
+    @staticmethod
+    def _build_metrics(metrics: dict) -> dict[int, object]:
+        """Build a TurnMetrics dict matching cxdb.TurnMetrics v3 tags."""
+        m: dict[int, object] = {}
+        if "input_tokens" in metrics:
+            m[1] = metrics["input_tokens"]
+        if "output_tokens" in metrics:
+            m[2] = metrics["output_tokens"]
+        if "total_tokens" in metrics:
+            m[3] = metrics["total_tokens"]
+        if "cached_tokens" in metrics:
+            m[4] = metrics["cached_tokens"]
+        if "reasoning_tokens" in metrics:
+            m[5] = metrics["reasoning_tokens"]
+        if "duration_ms" in metrics:
+            m[6] = metrics["duration_ms"]
+        if "model" in metrics:
+            m[7] = metrics["model"]
+        if "provider" in metrics:
+            m[8] = metrics["provider"]
+        return m
