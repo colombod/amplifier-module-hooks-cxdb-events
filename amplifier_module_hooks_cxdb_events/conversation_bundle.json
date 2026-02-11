@@ -1,277 +1,309 @@
 {
-  "types": [
-    {
-      "type_id": "cxdb.ConversationItem",
-      "type_version": 3,
-      "description": "Conversation turn with role, content, tool calls, and metrics",
-      "fields": [
-        {"tag": 1, "name": "item_type", "type": "string", "semantic": "enum", "required": true},
-        {"tag": 2, "name": "content", "type": "string", "required": false},
-        {"tag": 3, "name": "tool_calls", "type": "array", "required": false},
-        {"tag": 4, "name": "timestamp", "type": "uint64", "semantic": "unix_ms", "required": true},
-        {"tag": 5, "name": "metrics", "type": "map", "required": false},
-        {"tag": 6, "name": "agent", "type": "string", "required": false},
-        {"tag": 7, "name": "finish_reason", "type": "string", "required": false},
-        {"tag": 8, "name": "reasoning", "type": "string", "required": false}
-      ]
+  "registry_version": 1,
+  "bundle_id": "amplifier.events-v1",
+  "types": {
+    "cxdb.ConversationItem": {
+      "versions": {
+        "3": {
+          "fields": {
+            "1": {"name": "item_type", "type": "string"},
+            "2": {"name": "content", "type": "string", "optional": true},
+            "3": {"name": "tool_calls", "type": "array", "optional": true},
+            "4": {"name": "timestamp", "type": "uint64"},
+            "5": {"name": "metrics", "type": "map", "optional": true},
+            "6": {"name": "agent", "type": "string", "optional": true},
+            "7": {"name": "finish_reason", "type": "string", "optional": true},
+            "8": {"name": "reasoning", "type": "string", "optional": true}
+          }
+        }
+      }
     },
-    {
-      "type_id": "amplifier.SessionEvent",
-      "type_version": 1,
-      "description": "Session lifecycle events (start, end, fork, resume)",
-      "fields": [
-        {"tag": 1, "name": "event_name", "type": "string", "required": true},
-        {"tag": 2, "name": "session_id", "type": "string", "required": true},
-        {"tag": 3, "name": "parent_session_id", "type": "string", "required": false},
-        {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
-        {"tag": 5, "name": "agent_name", "type": "string", "required": false},
-        {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
-        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
-        {"tag": 10, "name": "parent_id", "type": "string", "required": false},
-        {"tag": 11, "name": "mount_plan", "type": "map", "required": false}
-      ]
+    "amplifier.SessionEvent": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "event_name", "type": "string"},
+            "2": {"name": "session_id", "type": "string"},
+            "3": {"name": "parent_session_id", "type": "string", "optional": true},
+            "4": {"name": "timestamp_ms", "type": "uint64"},
+            "5": {"name": "agent_name", "type": "string", "optional": true},
+            "6": {"name": "payload_bytes", "type": "uint32", "optional": true},
+            "7": {"name": "data", "type": "map", "optional": true},
+            "8": {"name": "root_session_id", "type": "string", "optional": true},
+            "10": {"name": "parent_id", "type": "string", "optional": true},
+            "11": {"name": "mount_plan", "type": "map", "optional": true}
+          }
+        }
+      }
     },
-    {
-      "type_id": "amplifier.PromptEvent",
-      "type_version": 1,
-      "description": "Prompt lifecycle events (submit, complete)",
-      "fields": [
-        {"tag": 1, "name": "event_name", "type": "string", "required": true},
-        {"tag": 2, "name": "session_id", "type": "string", "required": true},
-        {"tag": 3, "name": "parent_session_id", "type": "string", "required": false},
-        {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
-        {"tag": 5, "name": "agent_name", "type": "string", "required": false},
-        {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
-        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
-        {"tag": 10, "name": "prompt", "type": "string", "required": false},
-        {"tag": 11, "name": "response_preview", "type": "string", "required": false},
-        {"tag": 12, "name": "response_length", "type": "uint32", "required": false}
-      ]
+    "amplifier.PromptEvent": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "event_name", "type": "string"},
+            "2": {"name": "session_id", "type": "string"},
+            "3": {"name": "parent_session_id", "type": "string", "optional": true},
+            "4": {"name": "timestamp_ms", "type": "uint64"},
+            "5": {"name": "agent_name", "type": "string", "optional": true},
+            "6": {"name": "payload_bytes", "type": "uint32", "optional": true},
+            "7": {"name": "data", "type": "map", "optional": true},
+            "8": {"name": "root_session_id", "type": "string", "optional": true},
+            "10": {"name": "prompt", "type": "string", "optional": true},
+            "11": {"name": "response_preview", "type": "string", "optional": true},
+            "12": {"name": "response_length", "type": "uint32", "optional": true}
+          }
+        }
+      }
     },
-    {
-      "type_id": "amplifier.PlanEvent",
-      "type_version": 1,
-      "description": "Planning phase events (start, end)",
-      "fields": [
-        {"tag": 1, "name": "event_name", "type": "string", "required": true},
-        {"tag": 2, "name": "session_id", "type": "string", "required": true},
-        {"tag": 3, "name": "parent_session_id", "type": "string", "required": false},
-        {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
-        {"tag": 5, "name": "agent_name", "type": "string", "required": false},
-        {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
-        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
-        {"tag": 10, "name": "data", "type": "map", "required": false}
-      ]
+    "amplifier.PlanEvent": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "event_name", "type": "string"},
+            "2": {"name": "session_id", "type": "string"},
+            "3": {"name": "parent_session_id", "type": "string", "optional": true},
+            "4": {"name": "timestamp_ms", "type": "uint64"},
+            "5": {"name": "agent_name", "type": "string", "optional": true},
+            "6": {"name": "payload_bytes", "type": "uint32", "optional": true},
+            "7": {"name": "data", "type": "map", "optional": true},
+            "8": {"name": "root_session_id", "type": "string", "optional": true},
+            "10": {"name": "plan_data", "type": "map", "optional": true}
+          }
+        }
+      }
     },
-    {
-      "type_id": "amplifier.ProviderEvent",
-      "type_version": 1,
-      "description": "Provider/LLM interaction events (request, response, error)",
-      "fields": [
-        {"tag": 1, "name": "event_name", "type": "string", "required": true},
-        {"tag": 2, "name": "session_id", "type": "string", "required": true},
-        {"tag": 3, "name": "parent_session_id", "type": "string", "required": false},
-        {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
-        {"tag": 5, "name": "agent_name", "type": "string", "required": false},
-        {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
-        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
-        {"tag": 10, "name": "provider", "type": "string", "required": false},
-        {"tag": 11, "name": "model", "type": "string", "required": false},
-        {"tag": 12, "name": "iteration", "type": "uint32", "required": false},
-        {"tag": 13, "name": "usage", "type": "map", "required": false},
-        {"tag": 14, "name": "tool_calls", "type": "bool", "required": false},
-        {"tag": 15, "name": "error", "type": "map", "required": false},
-        {"tag": 16, "name": "retryable", "type": "bool", "required": false},
-        {"tag": 17, "name": "status_code", "type": "uint32", "required": false},
-        {"tag": 18, "name": "data", "type": "map", "required": false}
-      ]
+    "amplifier.ProviderEvent": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "event_name", "type": "string"},
+            "2": {"name": "session_id", "type": "string"},
+            "3": {"name": "parent_session_id", "type": "string", "optional": true},
+            "4": {"name": "timestamp_ms", "type": "uint64"},
+            "5": {"name": "agent_name", "type": "string", "optional": true},
+            "6": {"name": "payload_bytes", "type": "uint32", "optional": true},
+            "7": {"name": "data", "type": "map", "optional": true},
+            "8": {"name": "root_session_id", "type": "string", "optional": true},
+            "10": {"name": "provider", "type": "string", "optional": true},
+            "11": {"name": "model", "type": "string", "optional": true},
+            "12": {"name": "iteration", "type": "uint32", "optional": true},
+            "13": {"name": "usage", "type": "map", "optional": true},
+            "14": {"name": "tool_calls", "type": "string", "optional": true},
+            "15": {"name": "error", "type": "map", "optional": true},
+            "16": {"name": "retryable", "type": "string", "optional": true},
+            "17": {"name": "status_code", "type": "uint32", "optional": true}
+          }
+        }
+      }
     },
-    {
-      "type_id": "amplifier.ContentBlockEvent",
-      "type_version": 1,
-      "description": "Content block events (start, delta, end)",
-      "fields": [
-        {"tag": 1, "name": "event_name", "type": "string", "required": true},
-        {"tag": 2, "name": "session_id", "type": "string", "required": true},
-        {"tag": 3, "name": "parent_session_id", "type": "string", "required": false},
-        {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
-        {"tag": 5, "name": "agent_name", "type": "string", "required": false},
-        {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
-        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
-        {"tag": 10, "name": "block_type", "type": "string", "required": false},
-        {"tag": 11, "name": "block_index", "type": "uint32", "required": false},
-        {"tag": 12, "name": "total_blocks", "type": "uint32", "required": false},
-        {"tag": 13, "name": "block", "type": "map", "required": false},
-        {"tag": 14, "name": "usage", "type": "map", "required": false}
-      ]
+    "amplifier.ContentBlockEvent": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "event_name", "type": "string"},
+            "2": {"name": "session_id", "type": "string"},
+            "3": {"name": "parent_session_id", "type": "string", "optional": true},
+            "4": {"name": "timestamp_ms", "type": "uint64"},
+            "5": {"name": "agent_name", "type": "string", "optional": true},
+            "6": {"name": "payload_bytes", "type": "uint32", "optional": true},
+            "7": {"name": "data", "type": "map", "optional": true},
+            "8": {"name": "root_session_id", "type": "string", "optional": true},
+            "10": {"name": "block_type", "type": "string", "optional": true},
+            "11": {"name": "block_index", "type": "uint32", "optional": true},
+            "12": {"name": "total_blocks", "type": "uint32", "optional": true},
+            "13": {"name": "block", "type": "map", "optional": true},
+            "14": {"name": "usage", "type": "map", "optional": true}
+          }
+        }
+      }
     },
-    {
-      "type_id": "amplifier.ThinkingEvent",
-      "type_version": 1,
-      "description": "Extended thinking events (delta, final)",
-      "fields": [
-        {"tag": 1, "name": "event_name", "type": "string", "required": true},
-        {"tag": 2, "name": "session_id", "type": "string", "required": true},
-        {"tag": 3, "name": "parent_session_id", "type": "string", "required": false},
-        {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
-        {"tag": 5, "name": "agent_name", "type": "string", "required": false},
-        {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
-        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
-        {"tag": 10, "name": "content", "type": "string", "required": false}
-      ]
+    "amplifier.ThinkingEvent": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "event_name", "type": "string"},
+            "2": {"name": "session_id", "type": "string"},
+            "3": {"name": "parent_session_id", "type": "string", "optional": true},
+            "4": {"name": "timestamp_ms", "type": "uint64"},
+            "5": {"name": "agent_name", "type": "string", "optional": true},
+            "6": {"name": "payload_bytes", "type": "uint32", "optional": true},
+            "7": {"name": "data", "type": "map", "optional": true},
+            "8": {"name": "root_session_id", "type": "string", "optional": true},
+            "10": {"name": "content", "type": "string", "optional": true}
+          }
+        }
+      }
     },
-    {
-      "type_id": "amplifier.ToolEvent",
-      "type_version": 1,
-      "description": "Tool invocation events (pre, post, error)",
-      "fields": [
-        {"tag": 1, "name": "event_name", "type": "string", "required": true},
-        {"tag": 2, "name": "session_id", "type": "string", "required": true},
-        {"tag": 3, "name": "parent_session_id", "type": "string", "required": false},
-        {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
-        {"tag": 5, "name": "agent_name", "type": "string", "required": false},
-        {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
-        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
-        {"tag": 10, "name": "tool_name", "type": "string", "required": false},
-        {"tag": 11, "name": "tool_input", "type": "map", "required": false},
-        {"tag": 12, "name": "result", "type": "map", "required": false},
-        {"tag": 13, "name": "error", "type": "map", "required": false},
-        {"tag": 14, "name": "parallel_group_id", "type": "string", "required": false}
-      ]
+    "amplifier.ToolEvent": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "event_name", "type": "string"},
+            "2": {"name": "session_id", "type": "string"},
+            "3": {"name": "parent_session_id", "type": "string", "optional": true},
+            "4": {"name": "timestamp_ms", "type": "uint64"},
+            "5": {"name": "agent_name", "type": "string", "optional": true},
+            "6": {"name": "payload_bytes", "type": "uint32", "optional": true},
+            "7": {"name": "data", "type": "map", "optional": true},
+            "8": {"name": "root_session_id", "type": "string", "optional": true},
+            "10": {"name": "tool_name", "type": "string", "optional": true},
+            "11": {"name": "tool_input", "type": "map", "optional": true},
+            "12": {"name": "result", "type": "map", "optional": true},
+            "13": {"name": "error", "type": "map", "optional": true},
+            "14": {"name": "parallel_group_id", "type": "string", "optional": true}
+          }
+        }
+      }
     },
-    {
-      "type_id": "amplifier.ContextEvent",
-      "type_version": 1,
-      "description": "Context management events (compaction, include)",
-      "fields": [
-        {"tag": 1, "name": "event_name", "type": "string", "required": true},
-        {"tag": 2, "name": "session_id", "type": "string", "required": true},
-        {"tag": 3, "name": "parent_session_id", "type": "string", "required": false},
-        {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
-        {"tag": 5, "name": "agent_name", "type": "string", "required": false},
-        {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
-        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
-        {"tag": 10, "name": "metrics", "type": "map", "required": false},
-        {"tag": 11, "name": "data", "type": "map", "required": false}
-      ]
+    "amplifier.ContextEvent": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "event_name", "type": "string"},
+            "2": {"name": "session_id", "type": "string"},
+            "3": {"name": "parent_session_id", "type": "string", "optional": true},
+            "4": {"name": "timestamp_ms", "type": "uint64"},
+            "5": {"name": "agent_name", "type": "string", "optional": true},
+            "6": {"name": "payload_bytes", "type": "uint32", "optional": true},
+            "7": {"name": "data", "type": "map", "optional": true},
+            "8": {"name": "root_session_id", "type": "string", "optional": true},
+            "10": {"name": "metrics", "type": "map", "optional": true}
+          }
+        }
+      }
     },
-    {
-      "type_id": "amplifier.OrchestratorEvent",
-      "type_version": 1,
-      "description": "Orchestrator lifecycle events (complete, execution start/end)",
-      "fields": [
-        {"tag": 1, "name": "event_name", "type": "string", "required": true},
-        {"tag": 2, "name": "session_id", "type": "string", "required": true},
-        {"tag": 3, "name": "parent_session_id", "type": "string", "required": false},
-        {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
-        {"tag": 5, "name": "agent_name", "type": "string", "required": false},
-        {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
-        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
-        {"tag": 10, "name": "orchestrator", "type": "string", "required": false},
-        {"tag": 11, "name": "turn_count", "type": "uint32", "required": false},
-        {"tag": 12, "name": "status", "type": "string", "required": false}
-      ]
+    "amplifier.OrchestratorEvent": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "event_name", "type": "string"},
+            "2": {"name": "session_id", "type": "string"},
+            "3": {"name": "parent_session_id", "type": "string", "optional": true},
+            "4": {"name": "timestamp_ms", "type": "uint64"},
+            "5": {"name": "agent_name", "type": "string", "optional": true},
+            "6": {"name": "payload_bytes", "type": "uint32", "optional": true},
+            "7": {"name": "data", "type": "map", "optional": true},
+            "8": {"name": "root_session_id", "type": "string", "optional": true},
+            "10": {"name": "orchestrator", "type": "string", "optional": true},
+            "11": {"name": "turn_count", "type": "uint32", "optional": true},
+            "12": {"name": "status", "type": "string", "optional": true}
+          }
+        }
+      }
     },
-    {
-      "type_id": "amplifier.DelegationEvent",
-      "type_version": 1,
-      "description": "Agent delegation events (spawned, completed, resumed)",
-      "fields": [
-        {"tag": 1, "name": "event_name", "type": "string", "required": true},
-        {"tag": 2, "name": "session_id", "type": "string", "required": true},
-        {"tag": 3, "name": "parent_session_id", "type": "string", "required": false},
-        {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
-        {"tag": 5, "name": "agent_name", "type": "string", "required": false},
-        {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
-        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
-        {"tag": 10, "name": "agent", "type": "string", "required": false},
-        {"tag": 11, "name": "sub_session_id", "type": "string", "required": false},
-        {"tag": 12, "name": "parent_session_id_field", "type": "string", "required": false},
-        {"tag": 13, "name": "context_depth", "type": "string", "required": false},
-        {"tag": 14, "name": "context_scope", "type": "string", "required": false},
-        {"tag": 15, "name": "success", "type": "bool", "required": false},
-        {"tag": 16, "name": "error", "type": "string", "required": false}
-      ]
+    "amplifier.DelegationEvent": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "event_name", "type": "string"},
+            "2": {"name": "session_id", "type": "string"},
+            "3": {"name": "parent_session_id", "type": "string", "optional": true},
+            "4": {"name": "timestamp_ms", "type": "uint64"},
+            "5": {"name": "agent_name", "type": "string", "optional": true},
+            "6": {"name": "payload_bytes", "type": "uint32", "optional": true},
+            "7": {"name": "data", "type": "map", "optional": true},
+            "8": {"name": "root_session_id", "type": "string", "optional": true},
+            "10": {"name": "agent", "type": "string", "optional": true},
+            "11": {"name": "sub_session_id", "type": "string", "optional": true},
+            "12": {"name": "parent_session_id_field", "type": "string", "optional": true},
+            "13": {"name": "context_depth", "type": "string", "optional": true},
+            "14": {"name": "context_scope", "type": "string", "optional": true},
+            "15": {"name": "success", "type": "string", "optional": true},
+            "16": {"name": "error", "type": "string", "optional": true}
+          }
+        }
+      }
     },
-    {
-      "type_id": "amplifier.ApprovalEvent",
-      "type_version": 1,
-      "description": "Policy and approval events (required, granted, denied, violation)",
-      "fields": [
-        {"tag": 1, "name": "event_name", "type": "string", "required": true},
-        {"tag": 2, "name": "session_id", "type": "string", "required": true},
-        {"tag": 3, "name": "parent_session_id", "type": "string", "required": false},
-        {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
-        {"tag": 5, "name": "agent_name", "type": "string", "required": false},
-        {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
-        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
-        {"tag": 10, "name": "details", "type": "map", "required": false}
-      ]
+    "amplifier.ApprovalEvent": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "event_name", "type": "string"},
+            "2": {"name": "session_id", "type": "string"},
+            "3": {"name": "parent_session_id", "type": "string", "optional": true},
+            "4": {"name": "timestamp_ms", "type": "uint64"},
+            "5": {"name": "agent_name", "type": "string", "optional": true},
+            "6": {"name": "payload_bytes", "type": "uint32", "optional": true},
+            "7": {"name": "data", "type": "map", "optional": true},
+            "8": {"name": "root_session_id", "type": "string", "optional": true},
+            "10": {"name": "details", "type": "map", "optional": true}
+          }
+        }
+      }
     },
-    {
-      "type_id": "amplifier.CancelEvent",
-      "type_version": 1,
-      "description": "Cancellation events (requested, completed)",
-      "fields": [
-        {"tag": 1, "name": "event_name", "type": "string", "required": true},
-        {"tag": 2, "name": "session_id", "type": "string", "required": true},
-        {"tag": 3, "name": "parent_session_id", "type": "string", "required": false},
-        {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
-        {"tag": 5, "name": "agent_name", "type": "string", "required": false},
-        {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
-        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
-        {"tag": 10, "name": "level", "type": "string", "required": false},
-        {"tag": 11, "name": "running_tools", "type": "array", "required": false},
-        {"tag": 12, "name": "running_tool_names", "type": "array", "required": false},
-        {"tag": 13, "name": "was_immediate", "type": "bool", "required": false},
-        {"tag": 14, "name": "error", "type": "string", "required": false}
-      ]
+    "amplifier.CancelEvent": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "event_name", "type": "string"},
+            "2": {"name": "session_id", "type": "string"},
+            "3": {"name": "parent_session_id", "type": "string", "optional": true},
+            "4": {"name": "timestamp_ms", "type": "uint64"},
+            "5": {"name": "agent_name", "type": "string", "optional": true},
+            "6": {"name": "payload_bytes", "type": "uint32", "optional": true},
+            "7": {"name": "data", "type": "map", "optional": true},
+            "8": {"name": "root_session_id", "type": "string", "optional": true},
+            "10": {"name": "level", "type": "string", "optional": true},
+            "11": {"name": "running_tools", "type": "array", "optional": true},
+            "12": {"name": "running_tool_names", "type": "array", "optional": true},
+            "13": {"name": "was_immediate", "type": "string", "optional": true},
+            "14": {"name": "error", "type": "string", "optional": true}
+          }
+        }
+      }
     },
-    {
-      "type_id": "amplifier.NotificationEvent",
-      "type_version": 1,
-      "description": "User notification events",
-      "fields": [
-        {"tag": 1, "name": "event_name", "type": "string", "required": true},
-        {"tag": 2, "name": "session_id", "type": "string", "required": true},
-        {"tag": 3, "name": "parent_session_id", "type": "string", "required": false},
-        {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
-        {"tag": 5, "name": "agent_name", "type": "string", "required": false},
-        {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
-        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
-        {"tag": 10, "name": "message", "type": "string", "required": false}
-      ]
+    "amplifier.NotificationEvent": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "event_name", "type": "string"},
+            "2": {"name": "session_id", "type": "string"},
+            "3": {"name": "parent_session_id", "type": "string", "optional": true},
+            "4": {"name": "timestamp_ms", "type": "uint64"},
+            "5": {"name": "agent_name", "type": "string", "optional": true},
+            "6": {"name": "payload_bytes", "type": "uint32", "optional": true},
+            "7": {"name": "data", "type": "map", "optional": true},
+            "8": {"name": "root_session_id", "type": "string", "optional": true},
+            "10": {"name": "message", "type": "string", "optional": true}
+          }
+        }
+      }
     },
-    {
-      "type_id": "amplifier.ArtifactEvent",
-      "type_version": 1,
-      "description": "File and artifact operation events",
-      "fields": [
-        {"tag": 1, "name": "event_name", "type": "string", "required": true},
-        {"tag": 2, "name": "session_id", "type": "string", "required": true},
-        {"tag": 3, "name": "parent_session_id", "type": "string", "required": false},
-        {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
-        {"tag": 5, "name": "agent_name", "type": "string", "required": false},
-        {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
-        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
-        {"tag": 10, "name": "metadata", "type": "map", "required": false}
-      ]
+    "amplifier.ArtifactEvent": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "event_name", "type": "string"},
+            "2": {"name": "session_id", "type": "string"},
+            "3": {"name": "parent_session_id", "type": "string", "optional": true},
+            "4": {"name": "timestamp_ms", "type": "uint64"},
+            "5": {"name": "agent_name", "type": "string", "optional": true},
+            "6": {"name": "payload_bytes", "type": "uint32", "optional": true},
+            "7": {"name": "data", "type": "map", "optional": true},
+            "8": {"name": "root_session_id", "type": "string", "optional": true},
+            "10": {"name": "metadata", "type": "map", "optional": true}
+          }
+        }
+      }
     },
-    {
-      "type_id": "amplifier.GenericEvent",
-      "type_version": 1,
-      "description": "Catch-all for unknown or future events",
-      "fields": [
-        {"tag": 1, "name": "event_name", "type": "string", "required": true},
-        {"tag": 2, "name": "session_id", "type": "string", "required": true},
-        {"tag": 3, "name": "parent_session_id", "type": "string", "required": false},
-        {"tag": 4, "name": "timestamp_ms", "type": "uint64", "semantic": "unix_ms", "required": true},
-        {"tag": 5, "name": "agent_name", "type": "string", "required": false},
-        {"tag": 6, "name": "payload_bytes", "type": "uint32", "required": false},
-        {"tag": 8, "name": "root_session_id", "type": "string", "required": false},
-        {"tag": 10, "name": "raw_data", "type": "map", "required": false},
-        {"tag": 11, "name": "source", "type": "string", "required": false}
-      ]
+    "amplifier.GenericEvent": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "event_name", "type": "string"},
+            "2": {"name": "session_id", "type": "string"},
+            "3": {"name": "parent_session_id", "type": "string", "optional": true},
+            "4": {"name": "timestamp_ms", "type": "uint64"},
+            "5": {"name": "agent_name", "type": "string", "optional": true},
+            "6": {"name": "payload_bytes", "type": "uint32", "optional": true},
+            "7": {"name": "data", "type": "map", "optional": true},
+            "8": {"name": "root_session_id", "type": "string", "optional": true},
+            "10": {"name": "raw_data", "type": "map", "optional": true},
+            "11": {"name": "source", "type": "string", "optional": true}
+          }
+        }
+      }
     }
-  ]
+  },
+  "enums": {}
 }

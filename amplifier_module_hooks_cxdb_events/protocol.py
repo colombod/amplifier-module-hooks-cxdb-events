@@ -25,7 +25,9 @@ COMPRESSION_NONE = 0
 # Frame header: len(4B) + msg_type(2B) + flags(2B) + req_id(8B) = 16 bytes
 # ALL LITTLE-ENDIAN per CXDB server/src/protocol/mod.rs
 FRAME_HEADER_SIZE = 16
-FRAME_HEADER_FORMAT = "<IHHQ"  # little-endian: u32 len, u16 msg_type, u16 flags, u64 req_id
+FRAME_HEADER_FORMAT = (
+    "<IHHQ"  # little-endian: u32 len, u16 msg_type, u16 flags, u64 req_id
+)
 
 
 def encode_frame(
@@ -216,13 +218,14 @@ class CXDBTcpClient:
             CXDBProtocolError: If server returns error.
         """
         self._ensure_connected()
-        response = await self._send_and_recv(MSG_CTX_CREATE, b"")
-        # Response: context_id(u64) + head_turn_id(u64) = 16 bytes
-        if len(response) < 16:
+        # Send base_turn_id=0 as u64 LE (8 bytes) per CXDB parse_ctx_create()
+        response = await self._send_and_recv(MSG_CTX_CREATE, struct.pack("<Q", 0))
+        # Response: context_id(u64) + head_turn_id(u64) + head_depth(u32) = 20 bytes
+        if len(response) < 20:
             raise CXDBProtocolError(
                 f"CTX_CREATE response too short: {len(response)} bytes"
             )
-        context_id, head_turn_id = struct.unpack("<QQ", response[:16])
+        context_id, head_turn_id, _head_depth = struct.unpack("<QQI", response[:20])
         logger.debug("Created context %d with head turn %d", context_id, head_turn_id)
         return context_id, head_turn_id
 

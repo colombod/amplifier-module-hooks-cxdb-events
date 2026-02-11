@@ -97,12 +97,14 @@ class MockCXDBServer:
             return struct.pack("<QH", 1, 1)
 
         if msg_type == MSG_CTX_CREATE:
-            # Return context_id(u64) + head_turn_id(u64)
+            # Read base_turn_id (u64 LE) from payload
+            base_turn_id = struct.unpack("<Q", payload[:8])[0] if len(payload) >= 8 else 0
             ctx_id = self._next_context_id
             self._next_context_id += 1
             turn_id = self._next_turn_id
             self._next_turn_id += 1
-            return struct.pack("<QQ", ctx_id, turn_id)
+            # Response: context_id(u64) + head_turn_id(u64) + head_depth(u32)
+            return struct.pack("<QQI", ctx_id, turn_id, 0)
 
         if msg_type == MSG_CTX_FORK:
             # Read base_turn_id, return new_context_id + head_turn_id + head_depth

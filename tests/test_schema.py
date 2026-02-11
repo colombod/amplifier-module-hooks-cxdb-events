@@ -29,11 +29,11 @@ class TestLoadBundleJson:
         bundle = load_bundle_json()
         assert isinstance(bundle, dict)
 
-    def test_bundle_has_types_array(self):
-        """Bundle has a 'types' key with a list value."""
+    def test_bundle_has_types_dict(self):
+        """Bundle has a 'types' key with a dict value."""
         bundle = load_bundle_json()
         assert "types" in bundle
-        assert isinstance(bundle["types"], list)
+        assert isinstance(bundle["types"], dict)
         assert len(bundle["types"]) > 0
 
 
@@ -41,13 +41,12 @@ class TestBundleTypes:
     def test_has_conversation_item(self):
         """Bundle includes cxdb.ConversationItem."""
         bundle = load_bundle_json()
-        type_ids = {t["type_id"] for t in bundle["types"]}
-        assert "cxdb.ConversationItem" in type_ids
+        assert "cxdb.ConversationItem" in bundle["types"]
 
     def test_has_all_15_amplifier_types(self):
         """Bundle includes all 15 amplifier.* event types."""
         bundle = load_bundle_json()
-        type_ids = {t["type_id"] for t in bundle["types"]}
+        type_ids = set(bundle["types"].keys())
         expected = {
             "amplifier.SessionEvent",
             "amplifier.PromptEvent",
@@ -73,7 +72,7 @@ class TestBundleTypes:
         assert len(bundle["types"]) == 16
 
     def test_all_amplifier_types_have_common_envelope(self):
-        """All amplifier.* types have the 6 common envelope fields."""
+        """All amplifier.* types have the 7 common envelope fields."""
         bundle = load_bundle_json()
         common_fields = {
             "event_name",
@@ -84,48 +83,60 @@ class TestBundleTypes:
             "payload_bytes",
             "root_session_id",
         }
-        for t in bundle["types"]:
-            if t["type_id"].startswith("amplifier."):
-                field_names = {f["name"] for f in t["fields"]}
+        for type_id, type_entry in bundle["types"].items():
+            if type_id.startswith("amplifier."):
+                # Get latest version's fields
+                versions = type_entry["versions"]
+                latest_version = max(versions.keys(), key=int)
+                fields = versions[latest_version]["fields"]
+                field_names = {f["name"] for f in fields.values()}
                 missing = common_fields - field_names
-                assert not missing, f"{t['type_id']} missing envelope fields: {missing}"
+                assert not missing, f"{type_id} missing envelope fields: {missing}"
 
     def test_common_envelope_uses_consistent_tags(self):
         """Common envelope fields use the same tags across all types."""
         bundle = load_bundle_json()
         expected_tags = {
-            "event_name": 1,
-            "session_id": 2,
-            "parent_session_id": 3,
-            "timestamp_ms": 4,
-            "agent_name": 5,
-            "payload_bytes": 6,
-            "root_session_id": 8,
+            "event_name": "1",
+            "session_id": "2",
+            "parent_session_id": "3",
+            "timestamp_ms": "4",
+            "agent_name": "5",
+            "payload_bytes": "6",
+            "root_session_id": "8",
         }
-        for t in bundle["types"]:
-            if t["type_id"].startswith("amplifier."):
-                for field in t["fields"]:
+        for type_id, type_entry in bundle["types"].items():
+            if type_id.startswith("amplifier."):
+                versions = type_entry["versions"]
+                latest_version = max(versions.keys(), key=int)
+                fields = versions[latest_version]["fields"]
+                for tag_str, field in fields.items():
                     if field["name"] in expected_tags:
-                        assert field["tag"] == expected_tags[field["name"]], (
-                            f"{t['type_id']}.{field['name']} has tag {field['tag']}, "
+                        assert tag_str == expected_tags[field["name"]], (
+                            f"{type_id}.{field['name']} has tag {tag_str}, "
                             f"expected {expected_tags[field['name']]}"
                         )
 
     def test_no_duplicate_tags_per_type(self):
-        """No type has duplicate tag numbers."""
+        """No type has duplicate tag numbers (inherently true with dict keys)."""
         bundle = load_bundle_json()
-        for t in bundle["types"]:
-            tags = [f["tag"] for f in t["fields"]]
-            assert len(tags) == len(set(tags)), (
-                f"Duplicate tags in {t['type_id']}: {tags}"
-            )
+        for type_id, type_entry in bundle["types"].items():
+            versions = type_entry["versions"]
+            for ver, ver_entry in versions.items():
+                fields = ver_entry["fields"]
+                # Dict keys are inherently unique, but verify they parse as ints
+                tags = [int(k) for k in fields.keys()]
+                assert len(tags) == len(set(tags)), (
+                    f"Duplicate tags in {type_id} v{ver}: {tags}"
+                )
 
-    def test_all_types_have_description(self):
-        """Every type has a description field."""
+    def test_bundle_has_registry_metadata(self):
+        """Bundle has registry_version and bundle_id fields."""
         bundle = load_bundle_json()
-        for t in bundle["types"]:
-            assert "description" in t, f"{t['type_id']} missing description"
-            assert len(t["description"]) > 0
+        assert "registry_version" in bundle
+        assert bundle["registry_version"] == 1
+        assert "bundle_id" in bundle
+        assert bundle["bundle_id"] == "amplifier.events-v1"
 
     def test_type_specific_fields_use_tags_10_plus(self):
         """Type-specific fields (non-envelope) use tags >= 10."""
@@ -137,14 +148,18 @@ class TestBundleTypes:
             "timestamp_ms",
             "agent_name",
             "payload_bytes",
+            "data",
             "root_session_id",
         }
-        for t in bundle["types"]:
-            if t["type_id"].startswith("amplifier."):
-                for field in t["fields"]:
+        for type_id, type_entry in bundle["types"].items():
+            if type_id.startswith("amplifier."):
+                versions = type_entry["versions"]
+                latest_version = max(versions.keys(), key=int)
+                fields = versions[latest_version]["fields"]
+                for tag_str, field in fields.items():
                     if field["name"] not in envelope_names:
-                        assert field["tag"] >= 10, (
-                            f"{t['type_id']}.{field['name']} has tag {field['tag']}, "
+                        assert int(tag_str) >= 10, (
+                            f"{type_id}.{field['name']} has tag {tag_str}, "
                             f"expected >= 10 for type-specific fields"
                         )
 
