@@ -1,0 +1,18 @@
+bundle:
+  name: behavior-cxdb-events
+  version: 0.1.0
+  description: |
+    Stream Amplifier session events to a CXDB context store.
+    Captures all lifecycle events via binary TCP protocol with
+    dual-context model, turn accumulation, and retry buffering.
+
+hooks:
+  - module: hooks-cxdb-events
+    source: git+https://github.com/colombod/amplifier-module-hooks-cxdb-events@main
+    config:
+      cxdb_host: ""
+      cxdb_port: 9009
+      cxdb_http_port: 9010
+      priority: 100
+      buffer_size: 1000
+      flush_timeout_seconds: 5.0

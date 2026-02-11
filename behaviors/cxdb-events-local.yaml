@@ -1,0 +1,17 @@
+bundle:
+  name: behavior-cxdb-events-local
+  version: 0.1.0
+  description: |
+    Local development variant of the CXDB events hook.
+    Uses a local source path instead of git URL.
+
+hooks:
+  - module: hooks-cxdb-events
+    source: /home/dicolomb/cxdb-investigation/amplifier-module-hooks-cxdb-events
+    config:
+      cxdb_host: "localhost"
+      cxdb_port: 9009
+      cxdb_http_port: 9010
+      priority: 100
+      buffer_size: 1000
+      flush_timeout_seconds: 5.0
