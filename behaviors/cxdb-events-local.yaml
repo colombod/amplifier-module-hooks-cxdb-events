@@ -11,7 +11,7 @@ hooks:
     config:
       cxdb_host: "localhost"
       cxdb_port: 9009
-      cxdb_http_port: 9010
+      cxdb_http_port: 80
       priority: 100
       buffer_size: 1000
       flush_timeout_seconds: 5.0

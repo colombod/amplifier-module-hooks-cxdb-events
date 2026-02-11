@@ -211,7 +211,10 @@ class CXDBEventHook:
                 items = self._turn_accumulator.to_conversation_items(turn)
                 for item in items:
                     await self._write_turn(
-                        self._turns_context_id, item, "cxdb.ConversationItem"
+                        self._turns_context_id,
+                        item,
+                        "cxdb.ConversationItem",
+                        type_version=3,
                     )
         except Exception as e:
             logger.debug(f"Error flushing turns during cleanup: {e}")
@@ -308,11 +311,18 @@ class CXDBEventHook:
         items = self._turn_accumulator.to_conversation_items(turn)
         for item in items:
             await self._write_turn(
-                self._turns_context_id, item, "cxdb.ConversationItem"
+                self._turns_context_id,
+                item,
+                "cxdb.ConversationItem",
+                type_version=3,
             )
 
     async def _write_turn(
-        self, context_id: int, payload: dict[int, object], type_id: str
+        self,
+        context_id: int,
+        payload: dict[int, object],
+        type_id: str,
+        type_version: int = 1,
     ) -> None:
         """Write a single turn to a CXDB context with error handling."""
         try:
@@ -321,6 +331,7 @@ class CXDBEventHook:
                     context_id=context_id,
                     payload=payload,
                     declared_type_id=type_id,
+                    declared_type_version=type_version,
                 )
             else:
                 serialized = serialize_envelope(payload)
