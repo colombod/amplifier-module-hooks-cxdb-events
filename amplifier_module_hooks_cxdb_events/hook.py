@@ -8,6 +8,7 @@ from typing import Any
 from amplifier_module_hooks_cxdb_events.buffer import EventBuffer
 from amplifier_module_hooks_cxdb_events.protocol import CXDBTcpClient
 from amplifier_module_hooks_cxdb_events.schema import (
+    build_context_metadata,
     build_event_envelope,
     extract_agent_name,
     publish_registry_bundle,
@@ -120,27 +121,41 @@ class CXDBEventHook:
                         "Failed to publish registry bundle, continuing anyway"
                     )
 
-            # Create or resolve contexts
+            # Create contexts and write context_metadata as first turn
+            project_name = self._config.get("_project_name", "")
+            bundle_name = self._config.get("_bundle_name", "")
+            spawn_reason = "root" if self._is_root else "delegate"
+
             if self._is_root:
-                # Root session creates both contexts
                 self._turns_context_id, _, _ = await self._client.create_context()
                 self._everything_context_id, _, _ = await self._client.create_context()
-                logger.info(
-                    f"Created CXDB contexts: turns={self._turns_context_id}, "
-                    f"everything={self._everything_context_id}"
-                )
             else:
-                # Child sessions create their own CXDB contexts. Events carry
-                # root_session_id, session_id, and parent_session_id in the
-                # envelope, enabling cross-context lineage reconstruction.
-                # A future optimization could share root's contexts directly
-                # via a CXDB metadata lookup or capability propagation.
                 self._turns_context_id, _, _ = await self._client.create_context()
                 self._everything_context_id, _, _ = await self._client.create_context()
-                logger.info(
-                    f"Child session created CXDB contexts: turns={self._turns_context_id}, "
-                    f"everything={self._everything_context_id}"
+
+            # Write context_metadata as first turn to each context.
+            # CXDB extracts tag 30 to populate title, labels, and provenance in the UI.
+            for ctx_id, label in [
+                (self._turns_context_id, "Turns"),
+                (self._everything_context_id, "Events"),
+            ]:
+                metadata_item = build_context_metadata(
+                    session_id=self._session_id,
+                    context_label=label,
+                    client_tag=self._client.client_tag,
+                    project_name=project_name,
+                    agent_name=self._agent_name or "",
+                    bundle_name=bundle_name,
+                    spawn_reason=spawn_reason,
                 )
+                await self._write_turn(
+                    ctx_id, metadata_item, "cxdb.ConversationItem", type_version=3
+                )
+
+            logger.info(
+                f"Created CXDB contexts: turns={self._turns_context_id}, "
+                f"everything={self._everything_context_id}"
+            )
 
             self._initialized = True
 

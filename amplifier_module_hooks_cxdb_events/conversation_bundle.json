@@ -13,7 +13,59 @@
             "5": {"name": "metrics", "type": "map", "optional": true},
             "6": {"name": "agent", "type": "string", "optional": true},
             "7": {"name": "finish_reason", "type": "string", "optional": true},
-            "8": {"name": "reasoning", "type": "string", "optional": true}
+            "8": {"name": "reasoning", "type": "string", "optional": true},
+            "12": {"name": "system", "type": "map", "ref": "cxdb.SystemMessage", "optional": true},
+            "30": {"name": "context_metadata", "type": "map", "ref": "cxdb.ContextMetadata", "optional": true}
+          }
+        }
+      }
+    },
+    "cxdb.SystemMessage": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "kind", "type": "string"},
+            "2": {"name": "title", "type": "string", "optional": true},
+            "3": {"name": "content", "type": "string"}
+          }
+        }
+      }
+    },
+    "cxdb.ContextMetadata": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "client_tag", "type": "string", "optional": true},
+            "2": {"name": "title", "type": "string", "optional": true},
+            "3": {"name": "labels", "type": "array", "items": "string", "optional": true},
+            "4": {"name": "custom", "type": "map", "optional": true},
+            "10": {"name": "provenance", "type": "map", "ref": "cxdb.Provenance", "optional": true}
+          }
+        }
+      }
+    },
+    "cxdb.Provenance": {
+      "versions": {
+        "1": {
+          "fields": {
+            "1": {"name": "parent_context_id", "type": "u64", "optional": true},
+            "2": {"name": "spawn_reason", "type": "string", "optional": true},
+            "3": {"name": "root_context_id", "type": "u64", "optional": true},
+            "10": {"name": "trace_id", "type": "string", "optional": true},
+            "11": {"name": "span_id", "type": "string", "optional": true},
+            "20": {"name": "on_behalf_of", "type": "string", "optional": true},
+            "21": {"name": "on_behalf_of_source", "type": "string", "optional": true},
+            "40": {"name": "service_name", "type": "string", "optional": true},
+            "41": {"name": "service_version", "type": "string", "optional": true},
+            "42": {"name": "service_instance_id", "type": "string", "optional": true},
+            "43": {"name": "process_pid", "type": "i64", "optional": true},
+            "44": {"name": "process_owner", "type": "string", "optional": true},
+            "45": {"name": "host_name", "type": "string", "optional": true},
+            "46": {"name": "host_arch", "type": "string", "optional": true},
+            "60": {"name": "env", "type": "map", "optional": true},
+            "70": {"name": "sdk_name", "type": "string", "optional": true},
+            "71": {"name": "sdk_version", "type": "string", "optional": true},
+            "80": {"name": "captured_at", "type": "i64", "semantic": "unix_ms", "optional": true}
           }
         }
       }

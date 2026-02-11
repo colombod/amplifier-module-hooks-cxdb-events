@@ -69,7 +69,7 @@ class TestBundleTypes:
     def test_total_type_count(self):
         """Bundle has exactly 16 types (1 ConversationItem + 15 amplifier.*)."""
         bundle = load_bundle_json()
-        assert len(bundle["types"]) == 16
+        assert len(bundle["types"]) == 19
 
     def test_all_amplifier_types_have_common_envelope(self):
         """All amplifier.* types have the 7 common envelope fields."""

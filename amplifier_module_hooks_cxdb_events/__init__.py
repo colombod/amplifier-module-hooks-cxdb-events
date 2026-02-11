@@ -127,6 +127,11 @@ async def mount(coordinator: Any, config: dict[str, Any]) -> Any:
         host=cxdb_host, port=cxdb_port, timeout=timeout, client_tag=client_tag
     )
 
+    # Stash project/bundle info into config for context_metadata in hook.initialize()
+    bundle_name = coordinator.config.get("bundle_name", "")
+    config["_project_name"] = project_name
+    config["_bundle_name"] = bundle_name
+
     hook = CXDBEventHook(
         client=client,
         config=config,
